@@ -5,6 +5,7 @@ import '../lib/game/components/obstacle.dart';
 import '../lib/game/components/digital_barrier.dart';
 import '../lib/game/components/bird.dart';
 import '../lib/game/managers/obstacle_manager.dart';
+import '../lib/game/managers/difficulty_manager.dart';
 
 void main() {
   group('Obstacle Tests', () {

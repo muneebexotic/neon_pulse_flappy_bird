@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../components/obstacle.dart';
 import '../components/digital_barrier.dart';
+import '../components/laser_grid.dart';
+import '../components/floating_platform.dart';
 import '../components/bird.dart';
+import 'difficulty_manager.dart';
 
 /// Manages obstacle spawning, movement, and removal in the game
 class ObstacleManager extends Component {
@@ -53,19 +56,48 @@ class ObstacleManager extends Component {
     _removeOffScreenObstacles();
   }
   
-  /// Spawn a new obstacle at the right edge of the screen
+  /// Spawn obstacles based on current difficulty level
   void _spawnObstacle() {
-    // For now, only spawn DigitalBarrier obstacles
-    // Other obstacle types will be added in later tasks
-    final obstacle = DigitalBarrier(
-      startPosition: Vector2(worldWidth + spawnDistance, 0),
-      worldHeight: worldHeight,
-    );
+    final simultaneousCount = DifficultyManager.calculateSimultaneousObstacles(difficultyLevel);
     
-    obstacles.add(obstacle);
-    parent?.add(obstacle);
-    
-    debugPrint('Spawned obstacle at x: ${obstacle.position.x}');
+    // Spawn multiple obstacles if difficulty allows
+    for (int i = 0; i < simultaneousCount; i++) {
+      final obstacleType = DifficultyManager.selectObstacleType(difficultyLevel);
+      final xOffset = i * 150.0; // Space between simultaneous obstacles
+      
+      final obstacle = _createObstacle(
+        obstacleType,
+        Vector2(worldWidth + spawnDistance + xOffset, 0),
+      );
+      
+      if (obstacle != null) {
+        obstacles.add(obstacle);
+        parent?.add(obstacle);
+        
+        debugPrint('Spawned ${obstacleType.name} obstacle at x: ${obstacle.position.x}');
+      }
+    }
+  }
+  
+  /// Create obstacle of specified type
+  Obstacle? _createObstacle(ObstacleType type, Vector2 startPosition) {
+    switch (type) {
+      case ObstacleType.digitalBarrier:
+        return DigitalBarrier(
+          startPosition: startPosition,
+          worldHeight: worldHeight,
+        );
+      case ObstacleType.laserGrid:
+        return LaserGrid(
+          startPosition: startPosition,
+          worldHeight: worldHeight,
+        );
+      case ObstacleType.floatingPlatform:
+        return FloatingPlatform(
+          startPosition: startPosition,
+          worldHeight: worldHeight,
+        );
+    }
   }
   
   /// Update all obstacles (movement, timers, etc.)
@@ -127,10 +159,7 @@ class ObstacleManager extends Component {
   
   /// Get spawn interval adjusted for current difficulty
   double _getAdjustedSpawnInterval() {
-    // Decrease spawn interval as difficulty increases
-    final baseInterval = spawnInterval;
-    final difficultyMultiplier = 1.0 - (difficultyLevel - 1) * 0.1; // 10% faster per level
-    return baseInterval * math.max(0.5, difficultyMultiplier); // Minimum 0.5 seconds
+    return DifficultyManager.calculateSpawnInterval(difficultyLevel);
   }
   
   /// Disable obstacles within pulse range (for pulse mechanic)

@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../game/managers/difficulty_manager.dart';
 
 /// Represents the current state of the game
 enum GameStatus {
@@ -62,11 +63,14 @@ class GameState {
   void incrementScore() {
     currentScore++;
     
-    // Increase difficulty every 10 points
-    if (currentScore % 10 == 0) {
-      difficultyLevel = (currentScore ~/ 10) + 1;
-      gameSpeed = 1.0 + (difficultyLevel - 1) * 0.05; // 5% increase per level
-    }
+    // Update difficulty using DifficultyManager
+    difficultyLevel = DifficultyManager.calculateDifficultyLevel(currentScore);
+    gameSpeed = DifficultyManager.calculateGameSpeed(difficultyLevel);
+  }
+  
+  /// Get difficulty statistics
+  Map<String, dynamic> get difficultyStats {
+    return DifficultyManager.getDifficultyStats(currentScore);
   }
 
   /// End the game

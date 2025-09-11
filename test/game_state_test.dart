@@ -253,8 +253,8 @@ void main() {
         gameState.incrementScore();
         
         expect(gameState.currentScore, equals(1000));
-        expect(gameState.difficultyLevel, equals(101)); // (1000 / 10) + 1
-        expect(gameState.gameSpeed, equals(6.0)); // 1.0 + (100 * 0.05)
+        expect(gameState.difficultyLevel, equals(20)); // Capped at max level
+        expect(gameState.gameSpeed, closeTo(1.95, 0.001)); // Capped at max speed
       });
 
       test('should handle negative high scores gracefully', () async {

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'obstacle.dart';
 import 'bird.dart';
 import '../effects/neon_colors.dart';
+import '../managers/difficulty_manager.dart';
 
 /// Digital barrier obstacle - basic vertical obstacle with neon glow
 class DigitalBarrier extends Obstacle {

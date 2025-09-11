@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'bird.dart';
+import '../managers/difficulty_manager.dart';
 
 /// Abstract base class for all obstacles in the game
 abstract class Obstacle extends PositionComponent {
@@ -73,9 +74,3 @@ abstract class Obstacle extends PositionComponent {
   }
 }
 
-/// Types of obstacles available in the game
-enum ObstacleType {
-  digitalBarrier,
-  laserGrid,
-  floatingPlatform,
-}
