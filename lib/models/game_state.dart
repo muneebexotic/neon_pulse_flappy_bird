@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 /// Represents the current state of the game
 enum GameStatus {
   menu,
@@ -36,11 +38,24 @@ class GameState {
     isGameOver = false;
   }
 
-  /// Update high score if current score is higher
-  void updateHighScore() {
+  /// Update high score if current score is higher and save to local storage
+  Future<void> updateHighScore() async {
     if (currentScore > highScore) {
       highScore = currentScore;
+      await _saveHighScore();
     }
+  }
+
+  /// Load high score from local storage
+  Future<void> loadHighScore() async {
+    final prefs = await SharedPreferences.getInstance();
+    highScore = prefs.getInt('high_score') ?? 0;
+  }
+
+  /// Save high score to local storage
+  Future<void> _saveHighScore() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('high_score', highScore);
   }
 
   /// Increment score and adjust difficulty
@@ -55,9 +70,9 @@ class GameState {
   }
 
   /// End the game
-  void endGame() {
+  Future<void> endGame() async {
     status = GameStatus.gameOver;
     isGameOver = true;
-    updateHighScore();
+    await updateHighScore();
   }
 }

@@ -9,6 +9,7 @@ import 'managers/obstacle_manager.dart';
 /// Main game class that extends FlameGame for the Neon Pulse Flappy Bird
 class NeonPulseGame extends FlameGame with HasCollisionDetection {
   late GameState gameState;
+  bool hasLoaded = false;
   
   // Game world boundaries
   static const double worldWidth = 800.0;
@@ -27,12 +28,17 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   @override
   Color backgroundColor() => const Color(0xFF0B0B1F);
 
+  /// Constructor - initialize gameState immediately for UI access
+  NeonPulseGame() {
+    gameState = GameState();
+  }
+
   @override
   Future<void> onLoad() async {
     super.onLoad();
     
-    // Initialize game state
-    gameState = GameState();
+    // Load high score from local storage
+    await gameState.loadHighScore();
     
     // Set up game world boundaries and coordinate system
     _setupWorldBoundaries();
@@ -45,6 +51,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     
     // Initialize game components
     _setupGameComponents();
+    
+    // Mark as loaded
+    hasLoaded = true;
     
     debugPrint('Neon Pulse Game initialized - World: ${worldWidth}x$worldHeight');
   }
@@ -283,13 +292,13 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   }
 
   /// End the current game
-  void endGame() {
-    gameState.endGame();
+  Future<void> endGame() async {
+    await gameState.endGame();
     
     // TODO: Handle game over state when components are implemented
     // - Stop audio
-    // - Show game over screen
-    // - Save high score
+    // - Show game over screen (now implemented)
+    // - Save high score (now implemented)
     // - Stop all animations
     
     debugPrint('Game ended - Score: ${gameState.currentScore}, High Score: ${gameState.highScore}');

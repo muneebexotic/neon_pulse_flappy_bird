@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:neon_pulse_flappy_bird/game/neon_pulse_game.dart';
 import 'package:neon_pulse_flappy_bird/models/game_state.dart';
 import 'package:neon_pulse_flappy_bird/game/components/bird.dart';
@@ -8,6 +9,9 @@ void main() {
     late NeonPulseGame game;
     
     setUp(() async {
+      // Mock SharedPreferences for testing
+      SharedPreferences.setMockInitialValues({});
+      
       game = NeonPulseGame();
       await game.onLoad();
     });
