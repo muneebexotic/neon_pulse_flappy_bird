@@ -19,6 +19,11 @@ class GameState {
   bool isPaused;
   bool isGameOver;
   
+  // Power-up effects
+  double scoreMultiplier;
+  bool isInvulnerable;
+  double gameSpeedMultiplier;
+  
   GameState({
     this.currentScore = 0,
     this.highScore = 0,
@@ -27,6 +32,9 @@ class GameState {
     this.status = GameStatus.menu,
     this.isPaused = false,
     this.isGameOver = false,
+    this.scoreMultiplier = 1.0,
+    this.isInvulnerable = false,
+    this.gameSpeedMultiplier = 1.0,
   });
 
   /// Reset game state for a new game
@@ -37,6 +45,9 @@ class GameState {
     status = GameStatus.playing;
     isPaused = false;
     isGameOver = false;
+    scoreMultiplier = 1.0;
+    isInvulnerable = false;
+    gameSpeedMultiplier = 1.0;
   }
 
   /// Update high score if current score is higher and save to local storage
@@ -61,11 +72,30 @@ class GameState {
 
   /// Increment score and adjust difficulty
   void incrementScore() {
-    currentScore++;
+    // Apply score multiplier from power-ups
+    final pointsToAdd = (1 * scoreMultiplier).round();
+    currentScore += pointsToAdd;
     
     // Update difficulty using DifficultyManager
     difficultyLevel = DifficultyManager.calculateDifficultyLevel(currentScore);
     gameSpeed = DifficultyManager.calculateGameSpeed(difficultyLevel);
+  }
+  
+  /// Update power-up effects
+  void updatePowerUpEffects({
+    double? newScoreMultiplier,
+    bool? newIsInvulnerable,
+    double? newGameSpeedMultiplier,
+  }) {
+    if (newScoreMultiplier != null) {
+      scoreMultiplier = newScoreMultiplier;
+    }
+    if (newIsInvulnerable != null) {
+      isInvulnerable = newIsInvulnerable;
+    }
+    if (newGameSpeedMultiplier != null) {
+      gameSpeedMultiplier = newGameSpeedMultiplier;
+    }
   }
   
   /// Get difficulty statistics

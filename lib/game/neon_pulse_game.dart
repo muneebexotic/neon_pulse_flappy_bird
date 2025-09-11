@@ -7,6 +7,7 @@ import 'components/bird.dart';
 import 'managers/obstacle_manager.dart';
 import 'managers/pulse_manager.dart';
 import 'managers/audio_manager.dart';
+import 'managers/power_up_manager.dart';
 import 'components/cyberpunk_background.dart';
 import 'effects/neon_colors.dart';
 import 'utils/performance_monitor.dart';
@@ -30,6 +31,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   late Bird bird;
   late ObstacleManager obstacleManager;
   late PulseManager pulseManager;
+  late PowerUpManager powerUpManager;
   late CyberpunkBackground background;
   
   // Audio system
@@ -136,6 +138,16 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     );
     add(pulseManager);
     
+    // Create and add power-up manager
+    powerUpManager = PowerUpManager(
+      worldWidth: worldWidth,
+      worldHeight: worldHeight,
+      bird: bird,
+      obstacleManager: obstacleManager,
+      gameState: gameState,
+    );
+    add(powerUpManager);
+    
     debugPrint('Game components initialized');
   }
 
@@ -190,16 +202,30 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       return;
     }
     
-    // Update obstacle manager with current difficulty
-    obstacleManager.updateDifficulty(gameState.gameSpeed, gameState.difficultyLevel);
+    // Update power-up effects in game state
+    gameState.updatePowerUpEffects(
+      newScoreMultiplier: powerUpManager.scoreMultiplier,
+      newIsInvulnerable: powerUpManager.isBirdInvulnerable,
+      newGameSpeedMultiplier: powerUpManager.gameSpeedMultiplier,
+    );
+    
+    // Apply power-up speed modifier to delta time (for future use)
+    // final adjustedDt = dt * gameState.gameSpeedMultiplier;
+    
+    // Update obstacle manager with current difficulty and speed modifiers
+    final effectiveGameSpeed = gameState.gameSpeed * gameState.gameSpeedMultiplier;
+    obstacleManager.updateDifficulty(effectiveGameSpeed, gameState.difficultyLevel);
     
     // Update pulse manager and bird pulse charge indicator
     final pulseChargeColor = pulseManager.getPulseChargeColor();
     final pulseChargeGlow = pulseManager.getPulseChargeGlow();
     bird.updatePulseCharge(pulseChargeColor, pulseChargeGlow);
     
-    // Check collision detection with obstacles
-    if (obstacleManager.checkCollisions(bird)) {
+    // Update bird power-up effects
+    bird.updatePowerUpEffects(gameState.isInvulnerable);
+    
+    // Check collision detection with obstacles (unless invulnerable)
+    if (!gameState.isInvulnerable && obstacleManager.checkCollisions(bird)) {
       // Bird hit an obstacle - end game
       bird.isAlive = false;
       _audioManager.playSoundEffect(SoundEffect.collision);
@@ -212,7 +238,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     for (final _ in passedObstacles) {
       gameState.incrementScore();
       _audioManager.playSoundEffect(SoundEffect.score);
-      debugPrint('Score: ${gameState.currentScore}');
+      debugPrint('Score: ${gameState.currentScore} (multiplier: ${gameState.scoreMultiplier}x)');
     }
     
     // TODO: Update other game components
@@ -308,6 +334,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     
     // Reset pulse manager
     pulseManager.reset();
+    
+    // Clear all power-ups and effects
+    powerUpManager.clearAll();
     
     // Reset background animation
     background.setGridAnimationSpeed(0.5);

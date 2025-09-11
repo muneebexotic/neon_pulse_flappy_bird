@@ -78,6 +78,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               isPulseReady: game.pulseManager.pulseReady,
               performanceStats: game.performanceStats,
               showDebugInfo: true, // Enable for debugging performance issues
+              activePowerUps: game.powerUpManager.allActiveEffects,
+              scoreMultiplier: game.gameState.scoreMultiplier,
               onPause: () {
                 if (game.gameState.isPaused) {
                   game.resumeGame();

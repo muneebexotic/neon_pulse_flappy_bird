@@ -35,6 +35,10 @@ class Bird extends PositionComponent {
   double pulseChargeGlow = 1.0;
   bool showPulseCharge = true;
   
+  // Power-up effects
+  bool isInvulnerable = false;
+  double shieldAnimationTime = 0.0;
+  
   // Component state
   bool hasLoaded = false;
   
@@ -220,6 +224,14 @@ class Bird extends PositionComponent {
     pulseChargeGlow = glowIntensity;
   }
   
+  /// Update power-up effects
+  void updatePowerUpEffects(bool invulnerable) {
+    isInvulnerable = invulnerable;
+    if (isInvulnerable) {
+      shieldAnimationTime += 0.016; // Assuming 60fps
+    }
+  }
+  
   /// Reset bird to initial state
   void reset() {
     position = Vector2(100, worldBounds.y / 2); // Center vertically
@@ -233,6 +245,10 @@ class Bird extends PositionComponent {
     pulseChargeColor = NeonColors.electricBlue;
     pulseChargeGlow = 1.0;
     showPulseCharge = true;
+    
+    // Reset power-up effects
+    isInvulnerable = false;
+    shieldAnimationTime = 0.0;
     
     // Clear existing particles if particle system is initialized
     if (hasLoaded && children.contains(particleSystem)) {
@@ -312,6 +328,11 @@ class Bird extends PositionComponent {
     // Draw pulse charge indicator
     if (showPulseCharge) {
       _drawPulseChargeIndicator(canvas);
+    }
+    
+    // Draw shield effect if invulnerable
+    if (isInvulnerable) {
+      _drawShieldEffect(canvas);
     }
     
     // Restore canvas state
@@ -444,5 +465,66 @@ class Bird extends PositionComponent {
       
       canvas.drawCircle(nodePosition, nodeSize, nodePaint);
     }
+  }
+  
+  /// Draw shield effect when bird is invulnerable
+  void _drawShieldEffect(Canvas canvas) {
+    final shieldRadius = size.x * 1.2;
+    final shieldOpacity = 0.6 + math.sin(shieldAnimationTime * 8.0) * 0.3;
+    
+    // Outer shield glow
+    final outerShieldPaint = Paint()
+      ..color = NeonColors.electricBlue.withOpacity(shieldOpacity * 0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 12.0);
+    
+    canvas.drawCircle(Offset.zero, shieldRadius, outerShieldPaint);
+    
+    // Inner shield ring
+    final innerShieldPaint = Paint()
+      ..color = NeonColors.electricBlue.withOpacity(shieldOpacity * 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 6.0);
+    
+    canvas.drawCircle(Offset.zero, shieldRadius * 0.8, innerShieldPaint);
+    
+    // Core shield ring
+    final coreShieldPaint = Paint()
+      ..color = NeonColors.electricBlue.withOpacity(shieldOpacity * 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    
+    canvas.drawCircle(Offset.zero, shieldRadius * 0.9, coreShieldPaint);
+    
+    // Draw hexagonal shield pattern
+    _drawHexagonalShield(canvas, shieldRadius * 0.85, shieldOpacity);
+  }
+  
+  /// Draw hexagonal shield pattern
+  void _drawHexagonalShield(Canvas canvas, double radius, double opacity) {
+    final hexPath = Path();
+    final sides = 6;
+    
+    for (int i = 0; i <= sides; i++) {
+      final angle = (i / sides) * 2 * math.pi + shieldAnimationTime * 0.5;
+      final x = math.cos(angle) * radius;
+      final y = math.sin(angle) * radius;
+      
+      if (i == 0) {
+        hexPath.moveTo(x, y);
+      } else {
+        hexPath.lineTo(x, y);
+      }
+    }
+    
+    // Draw hexagonal outline
+    final hexPaint = Paint()
+      ..color = NeonColors.electricBlue.withOpacity(opacity * 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    
+    canvas.drawPath(hexPath, hexPaint);
   }
 }

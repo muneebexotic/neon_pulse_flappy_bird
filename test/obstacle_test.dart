@@ -111,8 +111,9 @@ void main() {
           worldHeight: 600,
         );
         
-        // Position bird in the middle gap area
-        testBird.position = Vector2(120, 300); // Should be in gap
+        // Position bird in the actual gap area (between top and bottom barriers)
+        final gapY = barrier.topBarrierHeight + (DigitalBarrier.gapHeight / 2);
+        testBird.position = Vector2(120, gapY); // Should be in gap
         
         expect(barrier.checkCollision(testBird), isFalse);
       });
@@ -215,7 +216,8 @@ void main() {
         expect(barrier.checkCollision(testBird), isFalse);
         
         // Test bird in gap area - should not collide
-        testBird.position = Vector2(120, 300); // In gap area
+        final gapY = barrier.topBarrierHeight + (DigitalBarrier.gapHeight / 2);
+        testBird.position = Vector2(120, gapY); // In actual gap area
         expect(barrier.checkCollision(testBird), isFalse);
       });
     });
@@ -224,9 +226,12 @@ void main() {
   group('ObstacleManager Tests', () {
     late ObstacleManager manager;
     late Bird testBird;
+    late Component mockParent;
     
     setUp(() {
       manager = ObstacleManager(worldWidth: 800, worldHeight: 600);
+      mockParent = Component();
+      mockParent.add(manager); // Add manager to parent so it can spawn obstacles
       testBird = Bird();
       testBird.position = Vector2(100, 300);
       testBird.size = Vector2(40, 30);
@@ -244,10 +249,16 @@ void main() {
       // Initially no obstacles
       expect(manager.obstacleCount, equals(0));
       
+      // Set difficulty level 1 (should spawn 1 obstacle)
+      manager.updateDifficulty(1.0, 1);
+      
+      // Disable beat synchronization for predictable spawning
+      manager.setBeatSyncEnabled(false);
+      
       // Update for spawn interval duration
       manager.update(ObstacleManager.spawnInterval + 0.1);
       
-      // Should have spawned one obstacle
+      // Should have spawned one obstacle at difficulty level 1
       expect(manager.obstacleCount, equals(1));
     });
     
