@@ -4,6 +4,7 @@ import '../../game/neon_pulse_game.dart';
 import '../../models/game_state.dart';
 import '../components/game_hud.dart';
 import 'game_over_screen.dart';
+import 'settings_screen.dart';
 
 /// Game screen that displays the actual game
 class GameScreen extends StatefulWidget {
@@ -83,6 +84,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 } else {
                   game.pauseGame();
                 }
+              },
+              onSettings: () {
+                // Pause the game before opening settings
+                if (!game.gameState.isPaused) {
+                  game.pauseGame();
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(
+                      audioManager: game.audioManager,
+                    ),
+                  ),
+                );
               },
             ),
           

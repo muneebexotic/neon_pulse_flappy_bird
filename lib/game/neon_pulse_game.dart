@@ -6,6 +6,7 @@ import 'input_handler.dart';
 import 'components/bird.dart';
 import 'managers/obstacle_manager.dart';
 import 'managers/pulse_manager.dart';
+import 'managers/audio_manager.dart';
 import 'components/cyberpunk_background.dart';
 import 'effects/neon_colors.dart';
 import 'utils/performance_monitor.dart';
@@ -31,6 +32,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   late PulseManager pulseManager;
   late CyberpunkBackground background;
   
+  // Audio system
+  final AudioManager _audioManager = AudioManager();
+  
   // Performance monitoring
   final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
   
@@ -46,6 +50,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   Future<void> onLoad() async {
     super.onLoad();
     
+    // Initialize audio system
+    await _audioManager.initialize();
+    
     // Load high score from local storage
     await gameState.loadHighScore();
     
@@ -60,6 +67,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     
     // Initialize game components
     _setupGameComponents();
+    
+    // Set up beat synchronization
+    _setupBeatSynchronization();
     
     // Mark as loaded
     hasLoaded = true;
@@ -129,6 +139,18 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     debugPrint('Game components initialized');
   }
 
+  /// Set up beat synchronization with obstacle spawning
+  void _setupBeatSynchronization() {
+    _audioManager.beatStream.listen((beatEvent) {
+      if (gameState.status == GameStatus.playing && !gameState.isPaused) {
+        // Synchronize obstacle spawning with beats
+        obstacleManager.onBeatDetected(beatEvent.bpm);
+      }
+    });
+    
+    debugPrint('Beat synchronization initialized');
+  }
+
   @override
   void update(double dt) {
     super.update(dt);
@@ -180,6 +202,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     if (obstacleManager.checkCollisions(bird)) {
       // Bird hit an obstacle - end game
       bird.isAlive = false;
+      _audioManager.playSoundEffect(SoundEffect.collision);
       endGame();
       return;
     }
@@ -188,6 +211,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     final passedObstacles = obstacleManager.checkPassedObstacles(bird);
     for (final _ in passedObstacles) {
       gameState.incrementScore();
+      _audioManager.playSoundEffect(SoundEffect.score);
       debugPrint('Score: ${gameState.currentScore}');
     }
     
@@ -253,12 +277,14 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   void handleBirdJump() {
     if (bird.isAlive) {
       bird.jump();
+      _audioManager.playSoundEffect(SoundEffect.jump);
     }
   }
 
   /// Handle pulse mechanic activation
   void _handlePulseActivation() {
     if (pulseManager.tryActivatePulse()) {
+      _audioManager.playSoundEffect(SoundEffect.pulse);
       debugPrint('Pulse activated successfully');
     } else {
       debugPrint('Pulse activation failed - still on cooldown');
@@ -287,8 +313,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     background.setGridAnimationSpeed(0.5);
     background.setColorShiftSpeed(0.3);
     
-    // TODO: Reset other game components when they are implemented
-    // - Start background music
+    // Start background music with beat synchronization
+    _audioManager.playBackgroundMusic('cyberpunk_theme.mp3');
     
     debugPrint('Game started - Status: ${gameState.status}');
   }
@@ -299,10 +325,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       gameState.status = GameStatus.paused;
       gameState.isPaused = true;
       
-      // TODO: Pause audio and animations when implemented
-      // - Pause background music
-      // - Pause particle animations
-      // - Show pause overlay
+      // Pause background music
+      _audioManager.stopBackgroundMusic();
       
       debugPrint('Game paused');
     }
@@ -314,10 +338,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       gameState.status = GameStatus.playing;
       gameState.isPaused = false;
       
-      // TODO: Resume audio and animations when implemented
-      // - Resume background music
-      // - Resume particle animations
-      // - Hide pause overlay
+      // Resume background music
+      _audioManager.playBackgroundMusic('cyberpunk_theme.mp3');
       
       debugPrint('Game resumed');
     }
@@ -327,11 +349,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   Future<void> endGame() async {
     await gameState.endGame();
     
-    // TODO: Handle game over state when components are implemented
-    // - Stop audio
-    // - Show game over screen (now implemented)
-    // - Save high score (now implemented)
-    // - Stop all animations
+    // Stop background music
+    _audioManager.stopBackgroundMusic();
     
     debugPrint('Game ended - Score: ${gameState.currentScore}, High Score: ${gameState.highScore}');
   }
@@ -359,4 +378,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
 
   /// Get performance statistics
   Map<String, dynamic> get performanceStats => _performanceMonitor.getStats();
+  
+  /// Get audio manager for settings access
+  AudioManager get audioManager => _audioManager;
 }

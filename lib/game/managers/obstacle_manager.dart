@@ -24,6 +24,12 @@ class ObstacleManager extends Component {
   double currentGameSpeed = 1.0;
   int difficultyLevel = 1;
   
+  // Beat synchronization
+  bool beatSyncEnabled = true;
+  double lastBeatTime = 0.0;
+  double currentBpm = 128.0;
+  bool waitingForBeat = false;
+  
   ObstacleManager({required this.worldWidth, required this.worldHeight});
   
   @override
@@ -33,10 +39,11 @@ class ObstacleManager extends Component {
     // Update spawn timer
     spawnTimer += dt;
     
-    // Spawn new obstacles at regular intervals
-    if (spawnTimer >= _getAdjustedSpawnInterval()) {
+    // Spawn new obstacles at regular intervals or on beat
+    if (_shouldSpawnObstacle()) {
       _spawnObstacle();
       spawnTimer = 0.0;
+      waitingForBeat = false;
     }
     
     // Update all obstacles
@@ -163,5 +170,46 @@ class ObstacleManager extends Component {
   /// Check if any obstacles are currently disabled
   bool get hasDisabledObstacles {
     return obstacles.any((obstacle) => obstacle.isDisabled);
+  }
+  
+  /// Handle beat detection for synchronized spawning
+  void onBeatDetected(double bpm) {
+    currentBpm = bpm;
+    lastBeatTime = spawnTimer;
+    
+    if (beatSyncEnabled && waitingForBeat && spawnTimer >= _getMinSpawnInterval()) {
+      _spawnObstacle();
+      spawnTimer = 0.0;
+      waitingForBeat = false;
+    }
+  }
+  
+  /// Check if obstacle should be spawned based on timing and beat sync
+  bool _shouldSpawnObstacle() {
+    final adjustedInterval = _getAdjustedSpawnInterval();
+    
+    if (!beatSyncEnabled) {
+      // Normal time-based spawning
+      return spawnTimer >= adjustedInterval;
+    }
+    
+    // Beat-synchronized spawning
+    if (spawnTimer >= adjustedInterval) {
+      waitingForBeat = true;
+    }
+    
+    // Allow spawning if we've waited too long (fallback)
+    return spawnTimer >= adjustedInterval * 1.5;
+  }
+  
+  /// Get minimum spawn interval to prevent obstacles from being too close
+  double _getMinSpawnInterval() {
+    return spawnInterval * 0.7; // Minimum 70% of base interval
+  }
+  
+  /// Enable or disable beat synchronization
+  void setBeatSyncEnabled(bool enabled) {
+    beatSyncEnabled = enabled;
+    waitingForBeat = false;
   }
 }

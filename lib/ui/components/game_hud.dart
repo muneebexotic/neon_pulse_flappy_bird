@@ -6,6 +6,7 @@ class GameHUD extends StatelessWidget {
   final int highScore;
   final bool isPaused;
   final VoidCallback? onPause;
+  final VoidCallback? onSettings;
   final String? pulseStatus;
   final bool isPulseReady;
   final Map<String, dynamic>? performanceStats;
@@ -17,6 +18,7 @@ class GameHUD extends StatelessWidget {
     required this.highScore,
     this.isPaused = false,
     this.onPause,
+    this.onSettings,
     this.pulseStatus,
     this.isPulseReady = false,
     this.performanceStats,
@@ -37,9 +39,19 @@ class GameHUD extends StatelessWidget {
                 // Current Score Display
                 _buildScoreDisplay(),
                 
-                // Pause Button (if callback provided)
-                if (onPause != null)
-                  _buildPauseButton(),
+                // Control buttons
+                Row(
+                  children: [
+                    // Settings Button (if callback provided)
+                    if (onSettings != null) ...[
+                      _buildSettingsButton(),
+                      const SizedBox(width: 8),
+                    ],
+                    // Pause Button (if callback provided)
+                    if (onPause != null)
+                      _buildPauseButton(),
+                  ],
+                ),
               ],
             ),
             
@@ -134,6 +146,27 @@ class GameHUD extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.purple.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: IconButton(
+        onPressed: onSettings,
+        icon: Icon(
+          Icons.settings,
+          color: Colors.purple,
+          size: 24,
+        ),
       ),
     );
   }

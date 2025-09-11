@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'game_screen.dart';
+import 'settings_screen.dart';
 
 class MainMenuScreen extends StatelessWidget {
   const MainMenuScreen({super.key});
@@ -79,11 +80,9 @@ class MainMenuScreen extends StatelessWidget {
                   context,
                   'SETTINGS',
                   () {
-                    // TODO: Navigate to settings screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Settings screen not implemented yet'),
-                        backgroundColor: Colors.green,
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
                       ),
                     );
                   },
