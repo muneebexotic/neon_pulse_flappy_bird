@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/game_state.dart';
 import 'input_handler.dart';
 import 'components/bird.dart';
+import 'managers/obstacle_manager.dart';
 
 /// Main game class that extends FlameGame for the Neon Pulse Flappy Bird
 class NeonPulseGame extends FlameGame with HasCollisionDetection {
@@ -21,6 +22,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   
   // Game components
   late Bird bird;
+  late ObstacleManager obstacleManager;
   
   @override
   Color backgroundColor() => const Color(0xFF0B0B1F);
@@ -88,6 +90,13 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     bird.setWorldBounds(Vector2(worldWidth, worldHeight));
     add(bird);
     
+    // Create and add obstacle manager
+    obstacleManager = ObstacleManager(
+      worldWidth: worldWidth,
+      worldHeight: worldHeight,
+    );
+    add(obstacleManager);
+    
     debugPrint('Game components initialized');
   }
 
@@ -122,9 +131,25 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       return;
     }
     
+    // Update obstacle manager with current difficulty
+    obstacleManager.updateDifficulty(gameState.gameSpeed, gameState.difficultyLevel);
+    
+    // Check collision detection with obstacles
+    if (obstacleManager.checkCollisions(bird)) {
+      // Bird hit an obstacle - end game
+      bird.isAlive = false;
+      endGame();
+      return;
+    }
+    
+    // Check if bird passed any obstacles (for scoring)
+    final passedObstacles = obstacleManager.checkPassedObstacles(bird);
+    for (final _ in passedObstacles) {
+      gameState.incrementScore();
+      debugPrint('Score: ${gameState.currentScore}');
+    }
+    
     // TODO: Update other game components
-    // - Obstacle movement
-    // - Collision detection with obstacles
     // - Particle effects
     // - Audio synchronization
   }
@@ -217,8 +242,10 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     // Reset bird position and state
     bird.reset();
     
+    // Clear all obstacles
+    obstacleManager.clearAllObstacles();
+    
     // TODO: Reset other game components when they are implemented
-    // - Clear obstacles
     // - Reset particle systems
     // - Start background music
     

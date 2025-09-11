@@ -1,0 +1,167 @@
+import 'package:flame/components.dart';
+import 'package:flutter/material.dart';
+import 'dart:math' as math;
+import '../components/obstacle.dart';
+import '../components/digital_barrier.dart';
+import '../components/bird.dart';
+
+/// Manages obstacle spawning, movement, and removal in the game
+class ObstacleManager extends Component {
+  // Obstacle spawning properties
+  static const double spawnInterval = 2.5; // seconds between obstacles
+  static const double spawnDistance = 400.0; // distance from right edge to spawn
+  double spawnTimer = 0.0;
+  
+  // World properties
+  late double worldWidth;
+  late double worldHeight;
+  
+  // Obstacle tracking
+  final List<Obstacle> obstacles = [];
+  final List<Obstacle> passedObstacles = []; // For scoring
+  
+  // Difficulty scaling
+  double currentGameSpeed = 1.0;
+  int difficultyLevel = 1;
+  
+  ObstacleManager({required this.worldWidth, required this.worldHeight});
+  
+  @override
+  void update(double dt) {
+    super.update(dt);
+    
+    // Update spawn timer
+    spawnTimer += dt;
+    
+    // Spawn new obstacles at regular intervals
+    if (spawnTimer >= _getAdjustedSpawnInterval()) {
+      _spawnObstacle();
+      spawnTimer = 0.0;
+    }
+    
+    // Update all obstacles
+    _updateObstacles(dt);
+    
+    // Remove off-screen obstacles
+    _removeOffScreenObstacles();
+  }
+  
+  /// Spawn a new obstacle at the right edge of the screen
+  void _spawnObstacle() {
+    // For now, only spawn DigitalBarrier obstacles
+    // Other obstacle types will be added in later tasks
+    final obstacle = DigitalBarrier(
+      startPosition: Vector2(worldWidth + spawnDistance, 0),
+      worldHeight: worldHeight,
+    );
+    
+    obstacles.add(obstacle);
+    parent?.add(obstacle);
+    
+    debugPrint('Spawned obstacle at x: ${obstacle.position.x}');
+  }
+  
+  /// Update all obstacles (movement, timers, etc.)
+  void _updateObstacles(double dt) {
+    for (final obstacle in obstacles) {
+      obstacle.update(dt);
+    }
+  }
+  
+  /// Remove obstacles that have moved off-screen
+  void _removeOffScreenObstacles() {
+    final obstaclesToRemove = <Obstacle>[];
+    
+    for (final obstacle in obstacles) {
+      if (obstacle.shouldRemove) {
+        obstaclesToRemove.add(obstacle);
+      }
+    }
+    
+    // Remove obstacles from game and list
+    for (final obstacle in obstaclesToRemove) {
+      obstacles.remove(obstacle);
+      obstacle.removeFromParent();
+      debugPrint('Removed off-screen obstacle');
+    }
+  }
+  
+  /// Check collisions between bird and all obstacles
+  bool checkCollisions(Bird bird) {
+    for (final obstacle in obstacles) {
+      if (obstacle.checkCollision(bird)) {
+        debugPrint('Collision detected with obstacle at x: ${obstacle.position.x}');
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  /// Check if bird has passed any obstacles (for scoring)
+  List<Obstacle> checkPassedObstacles(Bird bird) {
+    final newlyPassedObstacles = <Obstacle>[];
+    
+    for (final obstacle in obstacles) {
+      if (!passedObstacles.contains(obstacle) && obstacle.hasBirdPassed(bird)) {
+        newlyPassedObstacles.add(obstacle);
+        passedObstacles.add(obstacle);
+        debugPrint('Bird passed obstacle - Score point!');
+      }
+    }
+    
+    return newlyPassedObstacles;
+  }
+  
+  /// Update difficulty settings
+  void updateDifficulty(double gameSpeed, int difficultyLevel) {
+    currentGameSpeed = gameSpeed;
+    this.difficultyLevel = difficultyLevel;
+  }
+  
+  /// Get spawn interval adjusted for current difficulty
+  double _getAdjustedSpawnInterval() {
+    // Decrease spawn interval as difficulty increases
+    final baseInterval = spawnInterval;
+    final difficultyMultiplier = 1.0 - (difficultyLevel - 1) * 0.1; // 10% faster per level
+    return baseInterval * math.max(0.5, difficultyMultiplier); // Minimum 0.5 seconds
+  }
+  
+  /// Disable obstacles within pulse range (for pulse mechanic)
+  void disableObstaclesInRange(Vector2 pulseCenter, double pulseRadius, double duration) {
+    for (final obstacle in obstacles) {
+      final obstacleCenter = Vector2(
+        obstacle.position.x + obstacle.size.x / 2,
+        obstacle.position.y + obstacle.size.y / 2,
+      );
+      
+      final distance = pulseCenter.distanceTo(obstacleCenter);
+      
+      if (distance <= pulseRadius) {
+        obstacle.disable(duration);
+        debugPrint('Obstacle disabled by pulse at distance: $distance');
+      }
+    }
+  }
+  
+  /// Clear all obstacles (for game reset)
+  void clearAllObstacles() {
+    for (final obstacle in obstacles) {
+      obstacle.removeFromParent();
+    }
+    obstacles.clear();
+    passedObstacles.clear();
+    spawnTimer = 0.0;
+    debugPrint('All obstacles cleared');
+  }
+  
+  /// Get count of active obstacles
+  int get obstacleCount => obstacles.length;
+  
+  /// Get count of passed obstacles (for scoring)
+  int get passedObstacleCount => passedObstacles.length;
+  
+  /// Check if any obstacles are currently disabled
+  bool get hasDisabledObstacles {
+    return obstacles.any((obstacle) => obstacle.isDisabled);
+  }
+}
