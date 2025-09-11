@@ -5,6 +5,8 @@ import '../models/game_state.dart';
 import 'input_handler.dart';
 import 'components/bird.dart';
 import 'managers/obstacle_manager.dart';
+import 'components/cyberpunk_background.dart';
+import 'effects/neon_colors.dart';
 
 /// Main game class that extends FlameGame for the Neon Pulse Flappy Bird
 class NeonPulseGame extends FlameGame with HasCollisionDetection {
@@ -24,9 +26,10 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   // Game components
   late Bird bird;
   late ObstacleManager obstacleManager;
+  late CyberpunkBackground background;
   
   @override
-  Color backgroundColor() => const Color(0xFF0B0B1F);
+  Color backgroundColor() => NeonColors.deepSpace;
 
   /// Constructor - initialize gameState immediately for UI access
   NeonPulseGame() {
@@ -94,6 +97,10 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
 
   /// Initialize game components
   void _setupGameComponents() {
+    // Create and add cyberpunk background (render first)
+    background = CyberpunkBackground();
+    add(background);
+    
     // Create and add bird component
     bird = Bird();
     bird.setWorldBounds(Vector2(worldWidth, worldHeight));
@@ -254,8 +261,11 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     // Clear all obstacles
     obstacleManager.clearAllObstacles();
     
+    // Reset background animation
+    background.setGridAnimationSpeed(0.5);
+    background.setColorShiftSpeed(0.3);
+    
     // TODO: Reset other game components when they are implemented
-    // - Reset particle systems
     // - Start background music
     
     debugPrint('Game started - Status: ${gameState.status}');
