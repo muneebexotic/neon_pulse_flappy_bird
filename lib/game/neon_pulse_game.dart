@@ -1,13 +1,12 @@
 import 'package:flame/game.dart';
-import 'package:flame/events.dart';
-import 'package:flame/camera.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../models/game_state.dart';
 import 'input_handler.dart';
+import 'components/bird.dart';
 
 /// Main game class that extends FlameGame for the Neon Pulse Flappy Bird
-class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallbacks {
+class NeonPulseGame extends FlameGame with HasCollisionDetection {
   late GameState gameState;
   
   // Game world boundaries
@@ -19,6 +18,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
   
   // Input handling
   late InputHandler inputHandler;
+  
+  // Game components
+  late Bird bird;
   
   @override
   Color backgroundColor() => const Color(0xFF0B0B1F);
@@ -39,7 +41,10 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
     // Initialize input handling system
     _setupInputHandler();
     
-    debugPrint('Neon Pulse Game initialized - World: ${worldWidth}x${worldHeight}');
+    // Initialize game components
+    _setupGameComponents();
+    
+    debugPrint('Neon Pulse Game initialized - World: ${worldWidth}x$worldHeight');
   }
 
   /// Set up game world boundaries and coordinate system
@@ -55,9 +60,6 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
       width: worldWidth,
       height: worldHeight,
     );
-    
-    // Set camera viewport to fill the screen while maintaining aspect ratio
-    gameCamera.viewfinder.visibleGameSize = size;
     
     // Add camera to the game
     add(gameCamera);
@@ -77,6 +79,16 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
     };
     
     debugPrint('Input handler initialized');
+  }
+
+  /// Initialize game components
+  void _setupGameComponents() {
+    // Create and add bird component
+    bird = Bird();
+    bird.setWorldBounds(Vector2(worldWidth, worldHeight));
+    add(bird);
+    
+    debugPrint('Game components initialized');
   }
 
   @override
@@ -104,10 +116,15 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
 
   /// Update gameplay logic when game is active
   void _updateGameplay(double dt) {
-    // TODO: Update game components
-    // - Bird physics
+    // Check if bird is still alive
+    if (!bird.isAlive) {
+      endGame();
+      return;
+    }
+    
+    // TODO: Update other game components
     // - Obstacle movement
-    // - Collision detection
+    // - Collision detection with obstacles
     // - Particle effects
     // - Audio synchronization
   }
@@ -125,8 +142,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
 
 
   // Input handling system for tap detection
-  @override
-  bool onTapDown(TapDownEvent event) {
+  // This will be implemented when we integrate with the Flutter widget
+  void handleTap() {
     final currentTime = DateTime.now().millisecondsSinceEpoch / 1000.0;
     
     // Check for double tap
@@ -137,7 +154,6 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
     }
     
     inputHandler.lastTapTime = currentTime;
-    return true;
   }
 
   /// Handle single tap input
@@ -150,7 +166,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
       case GameStatus.playing:
         if (!gameState.isPaused) {
           // Bird jump on tap during gameplay
-          _handleBirdJump();
+          handleBirdJump();
         }
         break;
       case GameStatus.gameOver:
@@ -176,10 +192,10 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
   }
 
   /// Handle bird jump action
-  void _handleBirdJump() {
-    // TODO: Implement bird jump logic
-    // This will be implemented in task 3 (bird component)
-    debugPrint('Bird jump triggered');
+  void handleBirdJump() {
+    if (bird.isAlive) {
+      bird.jump();
+    }
   }
 
   /// Handle pulse mechanic activation
@@ -198,8 +214,10 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection, HasTapCallback
     // Reset camera position
     gameCamera.viewfinder.position = Vector2.zero();
     
-    // TODO: Reset all game components when they are implemented
-    // - Reset bird position and state
+    // Reset bird position and state
+    bird.reset();
+    
+    // TODO: Reset other game components when they are implemented
     // - Clear obstacles
     // - Reset particle systems
     // - Start background music

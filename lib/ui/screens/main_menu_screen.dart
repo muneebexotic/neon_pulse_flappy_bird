@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'game_screen.dart';
 
 class MainMenuScreen extends StatelessWidget {
   const MainMenuScreen({super.key});
@@ -52,11 +53,9 @@ class MainMenuScreen extends StatelessWidget {
                   context,
                   'PLAY',
                   () {
-                    // TODO: Navigate to game screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Game screen not implemented yet'),
-                        backgroundColor: Colors.cyan,
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const GameScreen(),
                       ),
                     );
                   },
