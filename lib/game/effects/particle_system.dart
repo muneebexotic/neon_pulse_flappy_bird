@@ -151,10 +151,10 @@ class ParticleSystem extends Component {
   final List<NeonParticle> _activeParticles = [];
   final ParticlePool _particlePool = ParticlePool(maxPoolSize: 200);
   
-  // Performance settings
-  int maxParticles = 150;
+  // Performance settings - reduced for better performance
+  int maxParticles = 50;
   bool qualityAdjustment = true;
-  double currentQuality = 1.0;
+  double currentQuality = 0.7;
 
   @override
   void update(double dt) {
@@ -297,7 +297,7 @@ class ParticleSystem extends Component {
   /// Set quality level manually (0.0 to 1.0)
   void setQuality(double quality) {
     currentQuality = quality.clamp(0.0, 1.0);
-    maxParticles = (150 * currentQuality).round();
+    maxParticles = (50 * currentQuality).round().clamp(10, 50);
   }
 
   /// Get current particle statistics

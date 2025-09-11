@@ -5,8 +5,10 @@ import '../models/game_state.dart';
 import 'input_handler.dart';
 import 'components/bird.dart';
 import 'managers/obstacle_manager.dart';
+import 'managers/pulse_manager.dart';
 import 'components/cyberpunk_background.dart';
 import 'effects/neon_colors.dart';
+import 'utils/performance_monitor.dart';
 
 /// Main game class that extends FlameGame for the Neon Pulse Flappy Bird
 class NeonPulseGame extends FlameGame with HasCollisionDetection {
@@ -26,7 +28,11 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   // Game components
   late Bird bird;
   late ObstacleManager obstacleManager;
+  late PulseManager pulseManager;
   late CyberpunkBackground background;
+  
+  // Performance monitoring
+  final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
   
   @override
   Color backgroundColor() => NeonColors.deepSpace;
@@ -113,12 +119,27 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     );
     add(obstacleManager);
     
+    // Create and add pulse manager
+    pulseManager = PulseManager(
+      bird: bird,
+      obstacleManager: obstacleManager,
+    );
+    add(pulseManager);
+    
     debugPrint('Game components initialized');
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+    
+    // Record frame for performance monitoring
+    _performanceMonitor.recordFrame();
+    
+    // Adjust particle quality based on performance
+    if (!_performanceMonitor.isPerformanceGood) {
+      bird.particleSystem.setQuality(_performanceMonitor.performanceQuality * 0.5);
+    }
     
     // Update game state and components based on current status
     switch (gameState.status) {
@@ -149,6 +170,11 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     
     // Update obstacle manager with current difficulty
     obstacleManager.updateDifficulty(gameState.gameSpeed, gameState.difficultyLevel);
+    
+    // Update pulse manager and bird pulse charge indicator
+    final pulseChargeColor = pulseManager.getPulseChargeColor();
+    final pulseChargeGlow = pulseManager.getPulseChargeGlow();
+    bird.updatePulseCharge(pulseChargeColor, pulseChargeGlow);
     
     // Check collision detection with obstacles
     if (obstacleManager.checkCollisions(bird)) {
@@ -184,17 +210,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
 
   // Input handling system for tap detection
   // This will be implemented when we integrate with the Flutter widget
-  void handleTap() {
-    final currentTime = DateTime.now().millisecondsSinceEpoch / 1000.0;
-    
-    // Check for double tap
-    if (currentTime - inputHandler.lastTapTime < InputHandler.doubleTapThreshold) {
-      _handleDoubleTap();
-    } else {
-      _handleSingleTap();
-    }
-    
-    inputHandler.lastTapTime = currentTime;
+  void handleTap([Offset? position]) {
+    inputHandler.processTap(position);
   }
 
   /// Handle single tap input
@@ -241,9 +258,11 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
 
   /// Handle pulse mechanic activation
   void _handlePulseActivation() {
-    // TODO: Implement pulse mechanic
-    // This will be implemented in task 7 (pulse mechanic system)
-    debugPrint('Pulse activation triggered');
+    if (pulseManager.tryActivatePulse()) {
+      debugPrint('Pulse activated successfully');
+    } else {
+      debugPrint('Pulse activation failed - still on cooldown');
+    }
   }
 
 
@@ -260,6 +279,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     
     // Clear all obstacles
     obstacleManager.clearAllObstacles();
+    
+    // Reset pulse manager
+    pulseManager.reset();
     
     // Reset background animation
     background.setGridAnimationSpeed(0.5);
@@ -334,4 +356,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   Vector2 worldToScreen(Vector2 worldPosition) {
     return gameCamera.viewfinder.localToGlobal(worldPosition);
   }
+
+  /// Get performance statistics
+  Map<String, dynamic> get performanceStats => _performanceMonitor.getStats();
 }

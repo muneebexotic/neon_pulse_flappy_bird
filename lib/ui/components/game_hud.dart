@@ -6,6 +6,10 @@ class GameHUD extends StatelessWidget {
   final int highScore;
   final bool isPaused;
   final VoidCallback? onPause;
+  final String? pulseStatus;
+  final bool isPulseReady;
+  final Map<String, dynamic>? performanceStats;
+  final bool showDebugInfo;
 
   const GameHUD({
     super.key,
@@ -13,6 +17,10 @@ class GameHUD extends StatelessWidget {
     required this.highScore,
     this.isPaused = false,
     this.onPause,
+    this.pulseStatus,
+    this.isPulseReady = false,
+    this.performanceStats,
+    this.showDebugInfo = false,
   });
 
   @override
@@ -40,6 +48,20 @@ class GameHUD extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: _buildHighScoreDisplay(),
             ),
+            
+            // Pulse Status Display (if provided)
+            if (pulseStatus != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: _buildPulseStatusDisplay(),
+              ),
+            
+            // Debug Performance Info (if enabled)
+            if (showDebugInfo && performanceStats != null)
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: _buildPerformanceDisplay(),
+              ),
           ],
         ),
       ),
@@ -133,6 +155,95 @@ class GameHUD extends StatelessWidget {
           color: Colors.orange,
           size: 24,
         ),
+      ),
+    );
+  }
+
+  Widget _buildPulseStatusDisplay() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isPulseReady 
+              ? Colors.blue.withValues(alpha: 0.7)
+              : Colors.grey.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.flash_on,
+            color: isPulseReady ? Colors.blue : Colors.grey,
+            size: 16,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            pulseStatus ?? '',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isPulseReady ? Colors.blue : Colors.grey,
+              shadows: isPulseReady ? [
+                Shadow(
+                  blurRadius: 6.0,
+                  color: Colors.blue,
+                  offset: const Offset(0, 0),
+                ),
+              ] : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerformanceDisplay() {
+    if (performanceStats == null) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: Colors.yellow.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'FPS: ${performanceStats!['averageFps']}',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.yellow,
+              fontFamily: 'monospace',
+            ),
+          ),
+          Text(
+            'Frame: ${performanceStats!['frameTimeMs']}ms',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.yellow,
+              fontFamily: 'monospace',
+            ),
+          ),
+          Text(
+            'Quality: ${performanceStats!['quality']}',
+            style: TextStyle(
+              fontSize: 10,
+              color: performanceStats!['performanceGood'] ? Colors.green : Colors.red,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
       ),
     );
   }

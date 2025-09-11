@@ -10,12 +10,16 @@ class CyberpunkBackground extends Component {
   Paint? gridPaint;
   
   // Animation properties
-  double gridAnimationSpeed = 0.5;
-  double colorShiftSpeed = 0.3;
+  double gridAnimationSpeed = 0.2; // Reduced for performance
+  double colorShiftSpeed = 0.1; // Reduced for performance
   
   // Grid properties
-  static const double gridSize = 50.0;
-  static const double gridOpacity = 0.1;
+  static const double gridSize = 100.0; // Larger grid for fewer lines
+  static const double gridOpacity = 0.05; // Reduced opacity
+  
+  // Performance optimization
+  double _lastUpdateTime = 0.0;
+  static const double _updateInterval = 0.1; // Update every 100ms instead of every frame
   
   @override
   Future<void> onLoad() async {
@@ -46,11 +50,12 @@ class CyberpunkBackground extends Component {
     // Update animation time
     animationTime += dt;
     
-    // Update background gradient with color shifting
-    _updateBackgroundGradient();
-    
-    // Update grid animation
-    _updateGridAnimation();
+    // Only update visual properties periodically for performance
+    if (animationTime - _lastUpdateTime >= _updateInterval) {
+      _updateBackgroundGradient();
+      _updateGridAnimation();
+      _lastUpdateTime = animationTime;
+    }
   }
   
   void _updateBackgroundGradient() {
@@ -198,15 +203,15 @@ class CyberpunkBackground extends Component {
   
   void _drawFloatingParticles(Canvas canvas, Size size) {
     final particlePaint = Paint()
-      ..color = NeonColors.electricBlue.withOpacity(0.3)
+      ..color = NeonColors.electricBlue.withOpacity(0.2)
       ..style = PaintingStyle.fill;
     
-    // Draw small floating particles
-    for (int i = 0; i < 20; i++) {
+    // Draw fewer floating particles for better performance
+    for (int i = 0; i < 8; i++) {
       final seed = i * 123.456;
-      final x = (math.sin(animationTime * 0.5 + seed) * 0.5 + 0.5) * size.width;
-      final y = (math.cos(animationTime * 0.3 + seed * 1.5) * 0.5 + 0.5) * size.height;
-      final particleSize = 1.0 + math.sin(animationTime * 2.0 + seed) * 0.5;
+      final x = (math.sin(animationTime * 0.3 + seed) * 0.5 + 0.5) * size.width;
+      final y = (math.cos(animationTime * 0.2 + seed * 1.5) * 0.5 + 0.5) * size.height;
+      final particleSize = 1.0 + math.sin(animationTime * 1.0 + seed) * 0.3;
       
       canvas.drawCircle(Offset(x, y), particleSize, particlePaint);
     }

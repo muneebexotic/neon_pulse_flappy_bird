@@ -7,8 +7,8 @@ import '../components/bird.dart';
 
 /// Manages obstacle spawning, movement, and removal in the game
 class ObstacleManager extends Component {
-  // Obstacle spawning properties
-  static const double spawnInterval = 2.5; // seconds between obstacles
+  // Obstacle spawning properties - increased for better performance
+  static const double spawnInterval = 3.5; // seconds between obstacles (increased)
   static const double spawnDistance = 400.0; // distance from right edge to spawn
   double spawnTimer = 0.0;
   

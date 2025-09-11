@@ -16,6 +16,8 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late NeonPulseGame game;
   late AnimationController _gameStateController;
+  DateTime? _lastTapTime;
+  static const Duration _doubleTapThreshold = Duration(milliseconds: 250);
 
   @override
   void initState() {
@@ -28,7 +30,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       vsync: this,
     );
     
-    // Start checking game state periodically
+    // Start checking game state periodically (much less frequently)
     _startGameStateMonitoring();
   }
 
@@ -39,8 +41,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _startGameStateMonitoring() {
-    // Check game state every frame to update UI
-    _gameStateController.repeat();
+    // Check game state every 100ms instead of every frame for better performance
+    _gameStateController.repeat(period: const Duration(milliseconds: 100));
     _gameStateController.addListener(() {
       if (mounted) {
         setState(() {
@@ -55,11 +57,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // Game widget with tap handling
+          // Game widget with improved tap handling
           GestureDetector(
             onTap: () {
-              // Handle tap input for the game
-              game.handleTap();
+              _handleTap();
             },
             child: GameWidget<NeonPulseGame>.controlled(
               gameFactory: () => game,
@@ -72,6 +73,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               currentScore: game.gameState.currentScore,
               highScore: game.gameState.highScore,
               isPaused: game.gameState.isPaused,
+              pulseStatus: game.pulseManager.getPulseStatusText(),
+              isPulseReady: game.pulseManager.pulseReady,
+              performanceStats: game.performanceStats,
+              showDebugInfo: true, // Enable for debugging performance issues
               onPause: () {
                 if (game.gameState.isPaused) {
                   game.resumeGame();
@@ -170,5 +175,25 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         ],
       ),
     );
+  }
+
+  /// Handle tap with immediate response and double-tap detection
+  void _handleTap() {
+    final now = DateTime.now();
+    
+    // Always handle single tap immediately for responsive gameplay
+    game.handleTap();
+    
+    // Check for double tap
+    if (_lastTapTime != null && 
+        now.difference(_lastTapTime!) < _doubleTapThreshold) {
+      // Double tap detected - activate pulse
+      if (game.gameState.status == GameStatus.playing && !game.gameState.isPaused) {
+        game.pulseManager.tryActivatePulse();
+        debugPrint('Double tap detected - pulse activated');
+      }
+    }
+    
+    _lastTapTime = now;
   }
 }

@@ -132,19 +132,14 @@ class DigitalBarrier extends Obstacle {
     
     // Determine colors based on disabled state
     final currentColor = isDisabled ? disabledColor : barrierColor;
-    final currentGlowIntensity = isDisabled ? 0.2 : glowIntensity;
     
-    // Get animated color for pulsing effect
-    final animatedColor = NeonColors.getAnimatedColor(
-      currentColor,
-      animationTime,
-      minIntensity: 0.7,
-      maxIntensity: 1.0,
-    );
+    // Simple animated color (much less computation)
+    final pulseIntensity = 0.8 + 0.2 * math.sin(animationTime * 2.0);
+    final animatedColor = Color.lerp(currentColor, currentColor.withOpacity(0.6), 1.0 - pulseIntensity) ?? currentColor;
     
     // Draw top barrier
     final topBarrierRect = Rect.fromLTWH(0, -position.y, barrierWidth, topBarrierHeight);
-    _drawNeonBarrier(canvas, topBarrierRect, animatedColor, currentGlowIntensity);
+    _drawSimpleBarrier(canvas, topBarrierRect, animatedColor);
     
     // Draw bottom barrier
     final bottomBarrierRect = Rect.fromLTWH(
@@ -153,188 +148,32 @@ class DigitalBarrier extends Obstacle {
       barrierWidth, 
       bottomBarrierHeight
     );
-    _drawNeonBarrier(canvas, bottomBarrierRect, animatedColor, currentGlowIntensity);
-    
-    // Draw digital grid pattern on barriers
-    _drawDigitalPattern(canvas, topBarrierRect, animatedColor);
-    _drawDigitalPattern(canvas, bottomBarrierRect, animatedColor);
-    
-    // Draw neon edges
-    _drawNeonEdges(canvas, topBarrierRect, animatedColor);
-    _drawNeonEdges(canvas, bottomBarrierRect, animatedColor);
+    _drawSimpleBarrier(canvas, bottomBarrierRect, animatedColor);
   }
   
-  /// Draw a neon barrier with multiple glow layers
-  void _drawNeonBarrier(Canvas canvas, Rect barrierRect, Color color, double glowIntensity) {
-    // Animate glow intensity
-    final animatedGlowIntensity = glowIntensity * 
-        (0.6 + 0.4 * math.sin(animationTime * 2.5));
+  /// Draw a simple, performance-optimized barrier
+  void _drawSimpleBarrier(Canvas canvas, Rect barrierRect, Color color) {
+    // Single glow layer (much more efficient)
+    final glowPaint = Paint()
+      ..color = color.withOpacity(0.3)
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 8.0);
     
-    // Draw multiple glow layers for depth
-    _drawGlowLayer(canvas, barrierRect, color, 20.0, 0.05 * animatedGlowIntensity);
-    _drawGlowLayer(canvas, barrierRect, color, 15.0, 0.1 * animatedGlowIntensity);
-    _drawGlowLayer(canvas, barrierRect, color, 10.0, 0.2 * animatedGlowIntensity);
-    _drawGlowLayer(canvas, barrierRect, color, 5.0, 0.4 * animatedGlowIntensity);
+    canvas.drawRect(barrierRect, glowPaint);
     
-    // Draw main barrier
+    // Main barrier
     final barrierPaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
     
     canvas.drawRect(barrierRect, barrierPaint);
-  }
-  
-  /// Draw a single glow layer
-  void _drawGlowLayer(Canvas canvas, Rect rect, Color color, double blurRadius, double opacity) {
-    final glowPaint = Paint()
-      ..color = color.withOpacity(opacity)
-      ..style = PaintingStyle.fill
-      ..maskFilter = MaskFilter.blur(BlurStyle.outer, blurRadius);
     
-    canvas.drawRect(rect, glowPaint);
-  }
-  
-  /// Draw neon edges around barriers
-  void _drawNeonEdges(Canvas canvas, Rect barrierRect, Color color) {
-    final edgePaint = Paint()
+    // Simple outline
+    final outlinePaint = Paint()
       ..color = color.withOpacity(0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     
-    // Draw glowing outline
-    final glowEdgePaint = Paint()
-      ..color = color.withOpacity(0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0
-      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 3.0);
-    
-    canvas.drawRect(barrierRect, glowEdgePaint);
-    canvas.drawRect(barrierRect, edgePaint);
-  }
-  
-  /// Draw digital grid pattern on barrier surface
-  void _drawDigitalPattern(Canvas canvas, Rect barrierRect, Color color) {
-    final patternOpacity = 0.2 + 0.1 * math.sin(animationTime * 4.0);
-    
-    final patternPaint = Paint()
-      ..color = color.withOpacity(patternOpacity)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    
-    final glowPatternPaint = Paint()
-      ..color = color.withOpacity(patternOpacity * 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 1.0);
-    
-    // Draw animated vertical lines
-    for (double x = 0; x < barrierRect.width; x += 12) {
-      final lineOpacity = 0.5 + 0.5 * math.sin(animationTime * 3.0 + x * 0.1);
-      
-      final animatedPaint = Paint()
-        ..color = color.withOpacity(patternOpacity * lineOpacity)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0;
-      
-      canvas.drawLine(
-        Offset(barrierRect.left + x, barrierRect.top),
-        Offset(barrierRect.left + x, barrierRect.bottom),
-        glowPatternPaint,
-      );
-      
-      canvas.drawLine(
-        Offset(barrierRect.left + x, barrierRect.top),
-        Offset(barrierRect.left + x, barrierRect.bottom),
-        animatedPaint,
-      );
-    }
-    
-    // Draw animated horizontal lines
-    for (double y = 0; y < barrierRect.height; y += 12) {
-      final lineOpacity = 0.5 + 0.5 * math.sin(animationTime * 2.5 + y * 0.1);
-      
-      final animatedPaint = Paint()
-        ..color = color.withOpacity(patternOpacity * lineOpacity)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0;
-      
-      canvas.drawLine(
-        Offset(barrierRect.left, barrierRect.top + y),
-        Offset(barrierRect.right, barrierRect.top + y),
-        glowPatternPaint,
-      );
-      
-      canvas.drawLine(
-        Offset(barrierRect.left, barrierRect.top + y),
-        Offset(barrierRect.right, barrierRect.top + y),
-        animatedPaint,
-      );
-    }
-    
-    // Draw corner highlights
-    _drawCornerHighlights(canvas, barrierRect, color);
-  }
-  
-  /// Draw glowing corner highlights
-  void _drawCornerHighlights(Canvas canvas, Rect barrierRect, Color color) {
-    final cornerSize = 8.0;
-    final cornerOpacity = 0.6 + 0.4 * math.sin(animationTime * 3.5);
-    
-    final cornerPaint = Paint()
-      ..color = color.withOpacity(cornerOpacity)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-    
-    final glowCornerPaint = Paint()
-      ..color = color.withOpacity(cornerOpacity * 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0
-      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 2.0);
-    
-    // Top-left corner
-    canvas.drawLine(
-      Offset(barrierRect.left, barrierRect.top),
-      Offset(barrierRect.left + cornerSize, barrierRect.top),
-      glowCornerPaint,
-    );
-    canvas.drawLine(
-      Offset(barrierRect.left, barrierRect.top),
-      Offset(barrierRect.left, barrierRect.top + cornerSize),
-      glowCornerPaint,
-    );
-    
-    canvas.drawLine(
-      Offset(barrierRect.left, barrierRect.top),
-      Offset(barrierRect.left + cornerSize, barrierRect.top),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(barrierRect.left, barrierRect.top),
-      Offset(barrierRect.left, barrierRect.top + cornerSize),
-      cornerPaint,
-    );
-    
-    // Top-right corner
-    canvas.drawLine(
-      Offset(barrierRect.right, barrierRect.top),
-      Offset(barrierRect.right - cornerSize, barrierRect.top),
-      glowCornerPaint,
-    );
-    canvas.drawLine(
-      Offset(barrierRect.right, barrierRect.top),
-      Offset(barrierRect.right, barrierRect.top + cornerSize),
-      glowCornerPaint,
-    );
-    
-    canvas.drawLine(
-      Offset(barrierRect.right, barrierRect.top),
-      Offset(barrierRect.right - cornerSize, barrierRect.top),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(barrierRect.right, barrierRect.top),
-      Offset(barrierRect.right, barrierRect.top + cornerSize),
-      cornerPaint,
-    );
+    canvas.drawRect(barrierRect, outlinePaint);
   }
 }

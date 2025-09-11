@@ -25,10 +25,15 @@ class Bird extends PositionComponent {
   // Trail particle system
   late ParticleSystem particleSystem;
   double trailSpawnTimer = 0.0;
-  static const double trailSpawnInterval = 0.05; // Spawn trail every 50ms
+  static const double trailSpawnInterval = 0.15; // Spawn trail every 150ms (reduced frequency)
   
   // Animation properties
   double animationTime = 0.0;
+  
+  // Pulse charge indicator
+  Color pulseChargeColor = NeonColors.electricBlue;
+  double pulseChargeGlow = 1.0;
+  bool showPulseCharge = true;
   
   // Component state
   bool hasLoaded = false;
@@ -100,9 +105,9 @@ class Bird extends PositionComponent {
       particleSystem.addSparks(
         position: Vector2(position.x + size.x / 2, position.y + size.y),
         color: _getPerformanceColor(),
-        sparkCount: 3,
-        speed: 60.0,
-        life: 0.8,
+        sparkCount: 2, // Reduced particle count
+        speed: 40.0,   // Reduced speed
+        life: 0.6,     // Shorter life
       );
     }
     
@@ -149,8 +154,8 @@ class Bird extends PositionComponent {
         position: trailPosition,
         color: _getPerformanceColor(),
         velocity: trailVelocity,
-        size: 2.0 + math.Random().nextDouble() * 1.0,
-        life: 1.2,
+        size: 1.5 + math.Random().nextDouble() * 0.5, // Smaller particles
+        life: 0.8, // Shorter life
       );
     }
   }
@@ -209,6 +214,12 @@ class Bird extends PositionComponent {
     debugPrint('Bird world bounds set to: $worldBounds');
   }
   
+  /// Update pulse charge indicator
+  void updatePulseCharge(Color chargeColor, double glowIntensity) {
+    pulseChargeColor = chargeColor;
+    pulseChargeGlow = glowIntensity;
+  }
+  
   /// Reset bird to initial state
   void reset() {
     position = Vector2(100, worldBounds.y / 2); // Center vertically
@@ -217,6 +228,11 @@ class Bird extends PositionComponent {
     isAlive = true;
     animationTime = 0.0;
     trailSpawnTimer = 0.0;
+    
+    // Reset pulse charge indicator
+    pulseChargeColor = NeonColors.electricBlue;
+    pulseChargeGlow = 1.0;
+    showPulseCharge = true;
     
     // Clear existing particles if particle system is initialized
     if (hasLoaded && children.contains(particleSystem)) {
@@ -293,6 +309,11 @@ class Bird extends PositionComponent {
     // Draw glowing eye
     _drawGlowingEye(canvas);
     
+    // Draw pulse charge indicator
+    if (showPulseCharge) {
+      _drawPulseChargeIndicator(canvas);
+    }
+    
     // Restore canvas state
     canvas.restore();
   }
@@ -357,5 +378,71 @@ class Bird extends PositionComponent {
       ..style = PaintingStyle.fill;
     
     canvas.drawCircle(pupilPosition, 1.5, pupilPaint);
+  }
+  
+  /// Draw pulse charge indicator around the bird
+  void _drawPulseChargeIndicator(Canvas canvas) {
+    final indicatorRadius = size.x * 0.8;
+    final indicatorOpacity = pulseChargeGlow * 0.6;
+    
+    if (indicatorOpacity <= 0.0) return;
+    
+    // Outer pulse ring
+    final outerRingPaint = Paint()
+      ..color = pulseChargeColor.withOpacity(indicatorOpacity * 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 8.0);
+    
+    canvas.drawCircle(Offset.zero, indicatorRadius, outerRingPaint);
+    
+    // Inner pulse ring
+    final innerRingPaint = Paint()
+      ..color = pulseChargeColor.withOpacity(indicatorOpacity * 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 4.0);
+    
+    canvas.drawCircle(Offset.zero, indicatorRadius * 0.8, innerRingPaint);
+    
+    // Core pulse ring
+    final coreRingPaint = Paint()
+      ..color = pulseChargeColor.withOpacity(indicatorOpacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    
+    canvas.drawCircle(Offset.zero, indicatorRadius * 0.6, coreRingPaint);
+    
+    // Draw energy nodes around the ring
+    _drawEnergyNodes(canvas, indicatorRadius * 0.7, pulseChargeColor, indicatorOpacity);
+  }
+  
+  /// Draw energy nodes around the pulse charge ring
+  void _drawEnergyNodes(Canvas canvas, double ringRadius, Color nodeColor, double opacity) {
+    final nodeCount = 6;
+    final nodeSize = 3.0;
+    
+    for (int i = 0; i < nodeCount; i++) {
+      final angle = (i / nodeCount) * 2 * math.pi + animationTime * 2.0;
+      final nodePosition = Offset(
+        math.cos(angle) * ringRadius,
+        math.sin(angle) * ringRadius,
+      );
+      
+      // Node glow
+      final nodeGlowPaint = Paint()
+        ..color = nodeColor.withOpacity(opacity * 0.4)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 4.0);
+      
+      canvas.drawCircle(nodePosition, nodeSize * 1.5, nodeGlowPaint);
+      
+      // Node core
+      final nodePaint = Paint()
+        ..color = nodeColor.withOpacity(opacity)
+        ..style = PaintingStyle.fill;
+      
+      canvas.drawCircle(nodePosition, nodeSize, nodePaint);
+    }
   }
 }
