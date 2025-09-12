@@ -30,6 +30,9 @@ class PulseManager extends Component {
   // Current active pulse effect
   PulseEffect? activePulseEffect;
   
+  // Usage tracking
+  int totalPulseUsage = 0;
+  
   PulseManager({required this.bird, required this.obstacleManager});
   
   @override
@@ -75,6 +78,9 @@ class PulseManager extends Component {
     isPulseActive = true;
     cooldownTimer = pulseCooldownDuration;
     
+    // Track pulse usage
+    totalPulseUsage++;
+    
     // Get pulse center position (bird's position)
     final pulseCenter = Vector2(
       bird.position.x + bird.size.x / 2,
@@ -100,7 +106,7 @@ class PulseManager extends Component {
       obstacleDisableDuration,
     );
     
-    debugPrint('Pulse activated at position: $pulseCenter');
+    debugPrint('Pulse activated at position: $pulseCenter (Total usage: $totalPulseUsage)');
   }
   
   /// Reset pulse cooldown
@@ -160,6 +166,9 @@ class PulseManager extends Component {
     pulseChargeGlow = 1.0;
     glowAnimationTime = 0.0;
     
+    // Reset usage tracking for new game
+    totalPulseUsage = 0;
+    
     // Remove active pulse effect if any
     if (activePulseEffect != null) {
       activePulseEffect!.removeFromParent();
@@ -195,4 +204,7 @@ class PulseManager extends Component {
     
     return activePulseEffect!.currentRadius;
   }
+  
+  /// Get total pulse usage for this game session
+  int getTotalPulseUsage() => totalPulseUsage;
 }

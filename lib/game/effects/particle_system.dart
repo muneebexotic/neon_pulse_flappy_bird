@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'skin_trail_effects.dart';
 
 /// Base particle class for neon effects
 class NeonParticle {
@@ -44,6 +45,18 @@ class NeonParticle {
       case ParticleType.spark:
         _updateSpark(dt);
         break;
+      case ParticleType.pulse:
+        _updatePulse(dt);
+        break;
+      case ParticleType.fire:
+        _updateFire(dt);
+        break;
+      case ParticleType.glow:
+        _updateGlow(dt);
+        break;
+      case ParticleType.energy:
+        _updateEnergy(dt);
+        break;
     }
   }
 
@@ -63,6 +76,32 @@ class NeonParticle {
     // Spark particles have gravity and fade
     velocity.y += 200.0 * dt; // gravity
     velocity *= 0.99;
+  }
+
+  void _updatePulse(double dt) {
+    // Pulse particles expand and fade
+    velocity *= 0.96;
+    size += dt * 15.0;
+  }
+
+  void _updateFire(double dt) {
+    // Fire particles rise and flicker
+    velocity.y -= 50.0 * dt; // upward drift
+    velocity *= 0.97;
+    size *= 0.998;
+  }
+
+  void _updateGlow(double dt) {
+    // Glow particles are stable but fade slowly
+    velocity *= 0.99;
+    size += dt * 2.0;
+  }
+
+  void _updateEnergy(double dt) {
+    // Energy particles have erratic movement
+    velocity.x += (math.Random().nextDouble() - 0.5) * 20.0 * dt;
+    velocity.y += (math.Random().nextDouble() - 0.5) * 20.0 * dt;
+    velocity *= 0.98;
   }
 
   /// Check if particle is still alive
@@ -300,6 +339,23 @@ class ParticleSystem extends Component {
     maxParticles = (50 * currentQuality).round().clamp(10, 50);
   }
 
+  /// Add a custom particle (for skin trail effects)
+  void addCustomParticle(Particle customParticle) {
+    if (_activeParticles.length >= maxParticles) return;
+    
+    // Convert custom particle to NeonParticle
+    final neonParticle = _particlePool.getParticle(
+      position: Vector2(customParticle.position.dx, customParticle.position.dy),
+      velocity: Vector2(customParticle.velocity.dx, customParticle.velocity.dy),
+      color: customParticle.color,
+      maxLife: customParticle.lifetime,
+      size: customParticle.size,
+      type: customParticle.type,
+    );
+    
+    _activeParticles.add(neonParticle);
+  }
+
   /// Get current particle statistics
   Map<String, dynamic> getStats() {
     return {
@@ -316,4 +372,8 @@ enum ParticleType {
   trail,
   explosion,
   spark,
+  pulse,
+  fire,
+  glow,
+  energy,
 }

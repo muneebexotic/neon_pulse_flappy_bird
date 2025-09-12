@@ -1,9 +1,34 @@
 import 'package:flutter/material.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
+import 'customization_screen.dart';
+import '../../game/managers/customization_manager.dart';
 
-class MainMenuScreen extends StatelessWidget {
+class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
+
+  @override
+  State<MainMenuScreen> createState() => _MainMenuScreenState();
+}
+
+class _MainMenuScreenState extends State<MainMenuScreen> {
+  final CustomizationManager _customizationManager = CustomizationManager();
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeCustomization();
+  }
+
+  Future<void> _initializeCustomization() async {
+    await _customizationManager.initialize();
+    if (mounted) {
+      setState(() {
+        _isInitialized = true;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,15 +90,15 @@ class MainMenuScreen extends StatelessWidget {
                 _buildMenuButton(
                   context,
                   'CUSTOMIZE',
-                  () {
-                    // TODO: Navigate to customization screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Customization screen not implemented yet'),
-                        backgroundColor: Colors.pink,
+                  _isInitialized ? () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => CustomizationScreen(
+                          customizationManager: _customizationManager,
+                        ),
                       ),
                     );
-                  },
+                  } : null,
                 ),
                 const SizedBox(height: 20),
                 _buildMenuButton(
@@ -95,7 +120,7 @@ class MainMenuScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuButton(BuildContext context, String text, VoidCallback onPressed) {
+  Widget _buildMenuButton(BuildContext context, String text, VoidCallback? onPressed) {
     return SizedBox(
       width: 200,
       height: 50,

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../effects/particle_system.dart';
 import '../effects/neon_colors.dart';
+import '../effects/skin_trail_effects.dart';
+import '../../models/bird_skin.dart';
 
 /// Bird component that handles player-controlled bird with physics
 class Bird extends PositionComponent {
@@ -21,6 +23,9 @@ class Bird extends PositionComponent {
   static const double birdWidth = 40.0;
   static const double birdHeight = 30.0;
   Color birdColor = NeonColors.electricBlue;
+  
+  // Skin properties
+  BirdSkin? currentSkin;
   
   // Trail particle system
   late ParticleSystem particleSystem;
@@ -139,33 +144,68 @@ class Bird extends PositionComponent {
     
     trailSpawnTimer += dt;
     
-    if (trailSpawnTimer >= trailSpawnInterval) {
+    // Adjust spawn interval based on skin
+    final adjustedInterval = currentSkin != null 
+        ? trailSpawnInterval / SkinTrailEffects.getTrailIntensity(currentSkin!)
+        : trailSpawnInterval;
+    
+    if (trailSpawnTimer >= adjustedInterval) {
       trailSpawnTimer = 0.0;
       
-      // Spawn trail particle at bird's current position
-      final trailPosition = Vector2(
-        position.x + size.x / 2,
-        position.y + size.y / 2,
-      );
-      
-      // Create trail velocity opposite to bird movement
-      final trailVelocity = Vector2(
-        -velocity.x * 0.3 + (math.Random().nextDouble() - 0.5) * 20,
-        -velocity.y * 0.2 + (math.Random().nextDouble() - 0.5) * 20,
-      );
-      
-      particleSystem.addTrailParticle(
-        position: trailPosition,
-        color: _getPerformanceColor(),
-        velocity: trailVelocity,
-        size: 1.5 + math.Random().nextDouble() * 0.5, // Smaller particles
-        life: 0.8, // Shorter life
-      );
+      // Spawn trail particles based on current skin
+      if (currentSkin != null) {
+        final trailPosition = Offset(
+          position.x + size.x / 2,
+          position.y + size.y / 2,
+        );
+        
+        final trailVelocity = Offset(
+          -velocity.x * 0.3,
+          -velocity.y * 0.2,
+        );
+        
+        // Create skin-specific trail particles
+        final skinParticles = SkinTrailEffects.createTrailParticles(
+          skin: currentSkin!,
+          position: trailPosition,
+          velocity: trailVelocity,
+          particleCount: 2, // Reduced count for performance
+        );
+        
+        // Add particles to the system
+        for (final particle in skinParticles) {
+          particleSystem.addCustomParticle(particle);
+        }
+      } else {
+        // Fallback to default trail
+        final trailPosition = Vector2(
+          position.x + size.x / 2,
+          position.y + size.y / 2,
+        );
+        
+        final trailVelocity = Vector2(
+          -velocity.x * 0.3 + (math.Random().nextDouble() - 0.5) * 20,
+          -velocity.y * 0.2 + (math.Random().nextDouble() - 0.5) * 20,
+        );
+        
+        particleSystem.addTrailParticle(
+          position: trailPosition,
+          color: _getPerformanceColor(),
+          velocity: trailVelocity,
+          size: 1.5 + math.Random().nextDouble() * 0.5,
+          life: 0.8,
+        );
+      }
     }
   }
   
   /// Get trail color based on bird performance (velocity and position)
   Color _getPerformanceColor() {
+    // Use skin color if available, otherwise use performance-based color
+    if (currentSkin != null) {
+      return currentSkin!.trailColor;
+    }
+    
     // Calculate performance based on velocity and position safety
     final velocityFactor = (1.0 - (velocity.y.abs() / maxFallSpeed)).clamp(0.0, 1.0);
     final positionFactor = isWithinSafeBounds ? 1.0 : 0.3;
@@ -230,6 +270,13 @@ class Bird extends PositionComponent {
     if (isInvulnerable) {
       shieldAnimationTime += 0.016; // Assuming 60fps
     }
+  }
+  
+  /// Update bird skin
+  void updateSkin(BirdSkin skin) {
+    currentSkin = skin;
+    birdColor = skin.primaryColor;
+    debugPrint('Bird skin updated to: ${skin.name}');
   }
   
   /// Reset bird to initial state

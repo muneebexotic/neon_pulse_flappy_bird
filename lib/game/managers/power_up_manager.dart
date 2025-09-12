@@ -29,6 +29,9 @@ class PowerUpManager extends Component {
   // Random number generator
   final math.Random _random = math.Random();
   
+  // Collection tracking
+  int totalPowerUpsCollected = 0;
+  
   PowerUpManager({
     required this.worldWidth,
     required this.worldHeight,
@@ -174,6 +177,9 @@ class PowerUpManager extends Component {
   
   /// Activate a collected power-up
   void _activatePowerUp(PowerUp powerUp) {
+    // Track collection
+    totalPowerUpsCollected++;
+    
     final effect = ActivePowerUpEffect(
       type: powerUp.type,
       duration: powerUp.duration,
@@ -186,7 +192,7 @@ class PowerUpManager extends Component {
     // Add new effect
     activeEffects.add(effect);
     
-    debugPrint('Activated ${powerUp.type.name} power-up for ${powerUp.duration} seconds');
+    debugPrint('Activated ${powerUp.type.name} power-up for ${powerUp.duration} seconds (Total collected: $totalPowerUpsCollected)');
   }
   
   /// Update active power-up effects
@@ -266,6 +272,9 @@ class PowerUpManager extends Component {
     // Reset spawn timer
     spawnTimer = 0.0;
     
+    // Reset collection tracking for new game
+    totalPowerUpsCollected = 0;
+    
     debugPrint('All power-ups and effects cleared');
   }
   
@@ -274,6 +283,9 @@ class PowerUpManager extends Component {
   
   /// Get count of active effects
   int get activeEffectCount => activeEffects.length;
+  
+  /// Get total power-ups collected for this game session
+  int getTotalPowerUpsCollected() => totalPowerUpsCollected;
 }
 
 /// Represents an active power-up effect

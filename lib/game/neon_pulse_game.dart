@@ -8,6 +8,7 @@ import 'managers/obstacle_manager.dart';
 import 'managers/pulse_manager.dart';
 import 'managers/audio_manager.dart';
 import 'managers/power_up_manager.dart';
+import 'managers/customization_manager.dart';
 import 'components/cyberpunk_background.dart';
 import 'effects/neon_colors.dart';
 import 'utils/performance_monitor.dart';
@@ -37,6 +38,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   // Audio system
   final AudioManager _audioManager = AudioManager();
   
+  // Customization system
+  final CustomizationManager _customizationManager = CustomizationManager();
+  
   // Performance monitoring
   final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
   
@@ -54,6 +58,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     
     // Initialize audio system
     await _audioManager.initialize();
+    
+    // Initialize customization system
+    await _customizationManager.initialize();
     
     // Load high score from local storage
     await gameState.loadHighScore();
@@ -122,6 +129,10 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     // Create and add bird component
     bird = Bird();
     bird.setWorldBounds(Vector2(worldWidth, worldHeight));
+    
+    // Apply selected skin to bird
+    bird.updateSkin(_customizationManager.selectedSkin);
+    
     add(bird);
     
     // Create and add obstacle manager
@@ -239,6 +250,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       gameState.incrementScore();
       _audioManager.playSoundEffect(SoundEffect.score);
       debugPrint('Score: ${gameState.currentScore} (multiplier: ${gameState.scoreMultiplier}x)');
+      
+      // Check for newly unlocked skins
+      _checkSkinUnlocks();
     }
     
     // TODO: Update other game components
@@ -378,6 +392,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   Future<void> endGame() async {
     await gameState.endGame();
     
+    // Update statistics and check achievements
+    await _updateGameStatistics();
+    
     // Stop background music
     _audioManager.stopBackgroundMusic();
     
@@ -410,4 +427,63 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   
   /// Get audio manager for settings access
   AudioManager get audioManager => _audioManager;
+  
+  /// Get customization manager for UI access
+  CustomizationManager get customizationManager => _customizationManager;
+  
+  /// Check for newly unlocked skins based on current score
+  Future<void> _checkSkinUnlocks() async {
+    final newlyUnlocked = await _customizationManager.checkAndUnlockSkins(gameState.currentScore);
+    
+    if (newlyUnlocked.isNotEmpty) {
+      for (final skin in newlyUnlocked) {
+        debugPrint('New skin unlocked: ${skin.name}');
+        // TODO: Show unlock notification in UI
+      }
+    }
+  }
+  
+  /// Update game statistics and achievements at end of game
+  Future<void> _updateGameStatistics() async {
+    // Count pulse usage during this game (would need to track this)
+    final pulseUsageThisGame = pulseManager.getTotalPulseUsage();
+    
+    // Count power-ups collected during this game
+    final powerUpsThisGame = powerUpManager.getTotalPowerUpsCollected();
+    
+    // Calculate survival time (would need to track this)
+    final survivalTime = _calculateSurvivalTime();
+    
+    // Update statistics and check achievements
+    final newAchievements = await _customizationManager.updateStatistics(
+      score: gameState.currentScore,
+      gamesPlayed: 1,
+      pulseUsage: pulseUsageThisGame,
+      powerUpsCollected: powerUpsThisGame,
+      survivalTime: survivalTime,
+    );
+    
+    if (newAchievements.isNotEmpty) {
+      for (final achievement in newAchievements) {
+        debugPrint('Achievement unlocked: ${achievement.name}');
+        // TODO: Show achievement notification in UI
+      }
+    }
+  }
+  
+  /// Calculate survival time for this game session
+  int _calculateSurvivalTime() {
+    // This would need to be tracked during gameplay
+    // For now, estimate based on score (rough approximation)
+    return gameState.currentScore * 2; // 2 seconds per point
+  }
+  
+  /// Update bird skin (called from UI)
+  Future<void> updateBirdSkin(String skinId) async {
+    final success = await _customizationManager.selectSkin(skinId);
+    if (success) {
+      bird.updateSkin(_customizationManager.selectedSkin);
+      debugPrint('Bird skin updated to: ${_customizationManager.selectedSkin.name}');
+    }
+  }
 }
