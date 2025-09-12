@@ -24,6 +24,10 @@ class GameState {
   bool isInvulnerable;
   double gameSpeedMultiplier;
   
+  // Pause state preservation
+  GameStatus? _statusBeforePause;
+  bool _wasPlayingBeforePause = false;
+  
   GameState({
     this.currentScore = 0,
     this.highScore = 0,
@@ -103,10 +107,47 @@ class GameState {
     return DifficultyManager.getDifficultyStats(currentScore);
   }
 
+  /// Pause the game and preserve current state
+  void pauseGame() {
+    if (status == GameStatus.playing && !isPaused) {
+      _statusBeforePause = status;
+      _wasPlayingBeforePause = true;
+      status = GameStatus.paused;
+      isPaused = true;
+    }
+  }
+  
+  /// Resume the game and restore previous state
+  void resumeGame() {
+    if (status == GameStatus.paused && isPaused) {
+      if (_wasPlayingBeforePause && _statusBeforePause == GameStatus.playing) {
+        status = GameStatus.playing;
+      } else {
+        status = _statusBeforePause ?? GameStatus.menu;
+      }
+      isPaused = false;
+      _statusBeforePause = null;
+      _wasPlayingBeforePause = false;
+    }
+  }
+  
+  /// Check if the game can be paused
+  bool canPause() {
+    return status == GameStatus.playing && !isPaused && !isGameOver;
+  }
+  
+  /// Check if the game can be resumed
+  bool canResume() {
+    return status == GameStatus.paused && isPaused;
+  }
+
   /// End the game
   Future<void> endGame() async {
     status = GameStatus.gameOver;
     isGameOver = true;
+    isPaused = false;
+    _statusBeforePause = null;
+    _wasPlayingBeforePause = false;
     await updateHighScore();
   }
 }

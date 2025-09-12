@@ -2,6 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'bird.dart';
 import '../managers/difficulty_manager.dart';
+import '../neon_pulse_game.dart';
 
 /// Abstract base class for all obstacles in the game
 abstract class Obstacle extends PositionComponent {
@@ -49,6 +50,12 @@ abstract class Obstacle extends PositionComponent {
   @override
   void update(double dt) {
     super.update(dt);
+    
+    // Check if game is paused - don't update if paused
+    final game = findGame() as NeonPulseGame?;
+    if (game != null && game.gameState.isPaused) {
+      return;
+    }
     
     // Update disable timer
     if (isDisabled && disableTimer > 0) {

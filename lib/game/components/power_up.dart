@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../effects/neon_colors.dart';
 import 'bird.dart';
+import '../neon_pulse_game.dart';
 
 /// Enum for different power-up types
 enum PowerUpType {
@@ -65,6 +66,12 @@ abstract class PowerUp extends PositionComponent {
     super.update(dt);
     
     if (isCollected) return;
+    
+    // Check if game is paused - don't update if paused
+    final game = findGame() as NeonPulseGame?;
+    if (game != null && game.gameState.isPaused) {
+      return;
+    }
     
     // Update animation time
     animationTime += dt;

@@ -8,6 +8,7 @@ import '../components/floating_platform.dart';
 import '../components/bird.dart';
 import 'difficulty_manager.dart';
 import 'settings_manager.dart';
+import '../neon_pulse_game.dart';
 
 /// Manages obstacle spawning, movement, and removal in the game
 class ObstacleManager extends Component {
@@ -40,6 +41,12 @@ class ObstacleManager extends Component {
   @override
   void update(double dt) {
     super.update(dt);
+    
+    // Check if game is paused - don't update if paused
+    final game = findGame() as NeonPulseGame?;
+    if (game != null && game.gameState.isPaused) {
+      return;
+    }
     
     // Update spawn timer
     spawnTimer += dt;

@@ -385,9 +385,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
 
   /// Pause the game
   void pauseGame() {
-    if (gameState.status == GameStatus.playing) {
-      gameState.status = GameStatus.paused;
-      gameState.isPaused = true;
+    if (gameState.canPause()) {
+      gameState.pauseGame();
       
       // Pause background music
       _audioManager.stopBackgroundMusic();
@@ -398,9 +397,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
 
   /// Resume the game
   void resumeGame() {
-    if (gameState.status == GameStatus.paused) {
-      gameState.status = GameStatus.playing;
-      gameState.isPaused = false;
+    if (gameState.canResume()) {
+      gameState.resumeGame();
       
       // Resume background music
       _audioManager.playBackgroundMusic('cyberpunk_theme.mp3');

@@ -5,6 +5,7 @@ import '../effects/particle_system.dart';
 import '../effects/neon_colors.dart';
 import '../effects/skin_trail_effects.dart';
 import '../../models/bird_skin.dart';
+import '../neon_pulse_game.dart';
 
 /// Bird component that handles player-controlled bird with physics
 class Bird extends PositionComponent {
@@ -78,6 +79,14 @@ class Bird extends PositionComponent {
     super.update(dt);
     
     if (!isAlive) return;
+    
+    // Check if game is paused - don't update physics if paused
+    final game = findGame() as NeonPulseGame?;
+    if (game != null && game.gameState.isPaused) {
+      // Only update animation time when paused, no physics
+      animationTime += dt;
+      return;
+    }
     
     // Update animation time
     animationTime += dt;

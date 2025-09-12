@@ -5,6 +5,7 @@ import '../components/power_up.dart';
 import '../components/bird.dart';
 import '../managers/obstacle_manager.dart';
 import '../../models/game_state.dart';
+import '../neon_pulse_game.dart';
 
 /// Manages power-up spawning, collection, and effects
 class PowerUpManager extends Component {
@@ -41,8 +42,15 @@ class PowerUpManager extends Component {
   });
   
   @override
+  @override
   void update(double dt) {
     super.update(dt);
+    
+    // Check if game is paused - don't update if paused
+    final game = findGame() as NeonPulseGame?;
+    if (game != null && game.gameState.isPaused) {
+      return;
+    }
     
     // Update spawn timer
     spawnTimer += dt;

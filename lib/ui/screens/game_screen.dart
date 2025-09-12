@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flame/game.dart';
 import '../../game/neon_pulse_game.dart';
 import '../../models/game_state.dart';
 import '../components/game_hud.dart';
+import '../components/pause_overlay.dart';
 import 'game_over_screen.dart';
 import 'settings_screen.dart';
 
@@ -14,16 +16,21 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
+class _GameScreenState extends State<GameScreen> 
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late NeonPulseGame game;
   late AnimationController _gameStateController;
   DateTime? _lastTapTime;
   static const Duration _doubleTapThreshold = Duration(milliseconds: 250);
+  bool _wasPlayingBeforeBackground = false;
 
   @override
   void initState() {
     super.initState();
     game = NeonPulseGame();
+    
+    // Add observer for app lifecycle events
+    WidgetsBinding.instance.addObserver(this);
     
     // Animation controller for smooth transitions
     _gameStateController = AnimationController(
@@ -37,8 +44,35 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _gameStateController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        // Auto-pause when app goes to background
+        if (game.hasLoaded && game.gameState.status == GameStatus.playing && !game.gameState.isPaused) {
+          _wasPlayingBeforeBackground = true;
+          game.pauseGame();
+        }
+        break;
+      case AppLifecycleState.resumed:
+        // Don't auto-resume - let user manually resume
+        _wasPlayingBeforeBackground = false;
+        break;
+      case AppLifecycleState.detached:
+        // App is being terminated
+        break;
+      case AppLifecycleState.hidden:
+        // App is hidden but still running
+        break;
+    }
   }
 
   void _startGameStateMonitoring() {
@@ -81,17 +115,31 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               activePowerUps: game.powerUpManager.allActiveEffects,
               scoreMultiplier: game.gameState.scoreMultiplier,
               onPause: () {
-                if (game.gameState.isPaused) {
+                if (game.gameState.canResume()) {
                   game.resumeGame();
-                } else {
+                } else if (game.gameState.canPause()) {
                   game.pauseGame();
                 }
               },
               onSettings: () {
-                // Pause the game before opening settings
-                if (!game.gameState.isPaused) {
+                // Pause the game first, then show pause overlay which will handle settings
+                if (game.gameState.canPause()) {
                   game.pauseGame();
                 }
+              },
+            ),
+          
+          // Pause Overlay - show when game is paused
+          if (game.hasLoaded && game.gameState.status == GameStatus.paused)
+            PauseOverlay(
+              isVisible: game.gameState.isPaused,
+              onResume: () {
+                game.resumeGame();
+              },
+              onRestart: () {
+                game.startGame();
+              },
+              onSettings: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => SettingsScreen(
@@ -106,8 +154,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 );
               },
+              onMainMenu: () {
+                Navigator.of(context).pop();
+              },
             ),
-          
+
           // Game Over Screen - only show when game is over
           if (game.hasLoaded && game.gameState.status == GameStatus.gameOver)
             GameOverScreen(
@@ -202,6 +253,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// Handle tap with immediate response and double-tap detection
   void _handleTap() {
     final now = DateTime.now();
+    
+    // Don't handle taps when paused (pause overlay will handle its own taps)
+    if (game.gameState.status == GameStatus.paused) {
+      return;
+    }
     
     // Always handle single tap immediately for responsive gameplay
     game.handleTap();

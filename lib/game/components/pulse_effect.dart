@@ -2,6 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../effects/neon_colors.dart';
+import '../neon_pulse_game.dart';
 
 /// Visual effect component for the energy pulse mechanic
 class PulseEffect extends PositionComponent {
@@ -50,6 +51,12 @@ class PulseEffect extends PositionComponent {
     super.update(dt);
     
     if (!isActive) return;
+    
+    // Check if game is paused - don't update if paused
+    final game = findGame() as NeonPulseGame?;
+    if (game != null && game.gameState.isPaused) {
+      return;
+    }
     
     elapsedTime += dt;
     

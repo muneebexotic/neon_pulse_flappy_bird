@@ -5,6 +5,7 @@ import '../components/pulse_effect.dart';
 import '../components/bird.dart';
 import '../managers/obstacle_manager.dart';
 import '../effects/neon_colors.dart';
+import '../neon_pulse_game.dart';
 
 /// Manages the pulse mechanic system including cooldown, effects, and collision detection
 class PulseManager extends Component {
@@ -38,6 +39,12 @@ class PulseManager extends Component {
   @override
   void update(double dt) {
     super.update(dt);
+    
+    // Check if game is paused - don't update if paused
+    final game = findGame() as NeonPulseGame?;
+    if (game != null && game.gameState.isPaused) {
+      return;
+    }
     
     // Update glow animation time
     glowAnimationTime += dt;
