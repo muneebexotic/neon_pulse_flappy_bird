@@ -29,13 +29,17 @@ class FloatingPlatform extends Obstacle {
   // Platform data
   late List<PlatformData> platforms;
   
-  FloatingPlatform({required Vector2 startPosition, required double worldHeight}) {
+  FloatingPlatform({
+    required Vector2 startPosition, 
+    required double worldHeight,
+    double gapSizeMultiplier = 1.0,
+  }) {
     type = ObstacleType.floatingPlatform;
     position = startPosition;
     size = Vector2(platformWidth, worldHeight);
     
-    // Initialize platforms
-    _initializePlatforms(worldHeight);
+    // Initialize platforms with gap size multiplier
+    _initializePlatforms(worldHeight, gapSizeMultiplier);
     
     // Set glow color
     glowColor = platformColor;
@@ -45,16 +49,19 @@ class FloatingPlatform extends Obstacle {
   }
   
   /// Initialize platform positions and movement patterns
-  void _initializePlatforms(double worldHeight) {
+  void _initializePlatforms(double worldHeight, double gapSizeMultiplier) {
     platforms = [];
     
+    // Adjust gap between platforms based on multiplier
+    final baseGap = 120.0;
+    final adjustedGap = baseGap * gapSizeMultiplier;
+    
     // Create platforms with gaps between them
-    final gapSize = 120.0; // Gap size for bird to fly through
-    final totalPlatformSpace = platformCount * platformHeight + (platformCount - 1) * gapSize;
+    final totalPlatformSpace = platformCount * platformHeight + (platformCount - 1) * adjustedGap;
     final startY = (worldHeight - totalPlatformSpace) / 2;
     
     for (int i = 0; i < platformCount; i++) {
-      final baseY = startY + i * (platformHeight + gapSize);
+      final baseY = startY + i * (platformHeight + adjustedGap);
       
       // Each platform has different movement pattern
       final movementPhase = i * math.pi; // Opposite phases for interesting patterns

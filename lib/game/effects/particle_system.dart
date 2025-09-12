@@ -338,6 +338,12 @@ class ParticleSystem extends Component {
     currentQuality = quality.clamp(0.0, 1.0);
     maxParticles = (50 * currentQuality).round().clamp(10, 50);
   }
+  
+  /// Set maximum particle count directly
+  void setMaxParticles(int count) {
+    maxParticles = count.clamp(10, 500);
+    currentQuality = maxParticles / 50.0; // Update quality to match
+  }
 
   /// Add a custom particle (for skin trail effects)
   void addCustomParticle(Particle customParticle) {

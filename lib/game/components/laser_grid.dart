@@ -28,13 +28,17 @@ class LaserGrid extends Obstacle {
   // Laser positions
   late List<double> laserYPositions;
   
-  LaserGrid({required Vector2 startPosition, required double worldHeight}) {
+  LaserGrid({
+    required Vector2 startPosition, 
+    required double worldHeight,
+    double gapSizeMultiplier = 1.0,
+  }) {
     type = ObstacleType.laserGrid;
     position = startPosition;
     size = Vector2(gridWidth, worldHeight);
     
-    // Calculate laser positions
-    _calculateLaserPositions(worldHeight);
+    // Calculate laser positions with gap size multiplier
+    _calculateLaserPositions(worldHeight, gapSizeMultiplier);
     
     // Set glow color
     glowColor = laserColor;
@@ -44,15 +48,18 @@ class LaserGrid extends Obstacle {
   }
   
   /// Calculate positions for horizontal laser beams
-  void _calculateLaserPositions(double worldHeight) {
+  void _calculateLaserPositions(double worldHeight, double gapSizeMultiplier) {
     laserYPositions = [];
     
+    // Adjust spacing based on gap size multiplier
+    final adjustedSpacing = laserSpacing * gapSizeMultiplier;
+    
     // Create gaps between lasers that the bird can fly through
-    final totalLaserSpace = (laserCount - 1) * laserSpacing;
+    final totalLaserSpace = (laserCount - 1) * adjustedSpacing;
     final startY = (worldHeight - totalLaserSpace) / 2;
     
     for (int i = 0; i < laserCount; i++) {
-      final laserY = startY + i * laserSpacing;
+      final laserY = startY + i * adjustedSpacing;
       laserYPositions.add(laserY);
     }
   }

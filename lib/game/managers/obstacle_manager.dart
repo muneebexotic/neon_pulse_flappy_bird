@@ -7,6 +7,7 @@ import '../components/laser_grid.dart';
 import '../components/floating_platform.dart';
 import '../components/bird.dart';
 import 'difficulty_manager.dart';
+import 'settings_manager.dart';
 
 /// Manages obstacle spawning, movement, and removal in the game
 class ObstacleManager extends Component {
@@ -26,6 +27,7 @@ class ObstacleManager extends Component {
   // Difficulty scaling
   double currentGameSpeed = 1.0;
   int difficultyLevel = 1;
+  DifficultyLevel? settingsDifficultyLevel;
   
   // Beat synchronization
   bool beatSyncEnabled = true;
@@ -81,21 +83,27 @@ class ObstacleManager extends Component {
   
   /// Create obstacle of specified type
   Obstacle? _createObstacle(ObstacleType type, Vector2 startPosition) {
+    // Get gap size multiplier from current difficulty level
+    final gapSizeMultiplier = _getGapSizeMultiplier();
+    
     switch (type) {
       case ObstacleType.digitalBarrier:
         return DigitalBarrier(
           startPosition: startPosition,
           worldHeight: worldHeight,
+          gapSizeMultiplier: gapSizeMultiplier,
         );
       case ObstacleType.laserGrid:
         return LaserGrid(
           startPosition: startPosition,
           worldHeight: worldHeight,
+          gapSizeMultiplier: gapSizeMultiplier,
         );
       case ObstacleType.floatingPlatform:
         return FloatingPlatform(
           startPosition: startPosition,
           worldHeight: worldHeight,
+          gapSizeMultiplier: gapSizeMultiplier,
         );
     }
   }
@@ -152,9 +160,15 @@ class ObstacleManager extends Component {
   }
   
   /// Update difficulty settings
-  void updateDifficulty(double gameSpeed, int difficultyLevel) {
+  void updateDifficulty(double gameSpeed, int difficultyLevel, [DifficultyLevel? settingsDifficulty]) {
     currentGameSpeed = gameSpeed;
     this.difficultyLevel = difficultyLevel;
+    settingsDifficultyLevel = settingsDifficulty;
+  }
+  
+  /// Get gap size multiplier based on settings difficulty
+  double _getGapSizeMultiplier() {
+    return settingsDifficultyLevel?.gapSizeMultiplier ?? 1.0;
   }
   
   /// Get spawn interval adjusted for current difficulty

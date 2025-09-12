@@ -96,6 +96,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   MaterialPageRoute(
                     builder: (context) => SettingsScreen(
                       audioManager: game.audioManager,
+                      settingsManager: game.settingsManager,
+                      performanceMonitor: game.performanceMonitor,
+                      onSettingsChanged: () {
+                        // Update game settings when they change
+                        game.updateSettings();
+                      },
                     ),
                   ),
                 );

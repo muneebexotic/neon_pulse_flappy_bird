@@ -14,12 +14,14 @@ class SettingsScreen extends StatefulWidget {
   final AudioManager? audioManager;
   final SettingsManager? settingsManager;
   final PerformanceMonitor? performanceMonitor;
+  final VoidCallback? onSettingsChanged;
   
   const SettingsScreen({
     super.key,
     this.audioManager,
     this.settingsManager,
     this.performanceMonitor,
+    this.onSettingsChanged,
   });
 
   @override
@@ -177,7 +179,9 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
         settingsManager: _settingsManager,
         performanceMonitor: _performanceMonitor,
         onGraphicsQualityChanged: (quality) {
-          // Handle graphics quality change
+          // Notify game of settings change
+          widget.onSettingsChanged?.call();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Graphics quality set to ${quality.displayName}'),
@@ -186,7 +190,9 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
           );
         },
         onParticleQualityChanged: (quality) {
-          // Handle particle quality change
+          // Notify game of settings change
+          widget.onSettingsChanged?.call();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Particle quality set to ${quality.displayName}'),
@@ -204,7 +210,9 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
       child: DifficultySettings(
         settingsManager: _settingsManager,
         onDifficultyChanged: (difficulty) {
-          // Handle difficulty change
+          // Notify game of settings change
+          widget.onSettingsChanged?.call();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Difficulty set to ${difficulty.displayName}'),
@@ -222,10 +230,12 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
       child: ControlSettings(
         settingsManager: _settingsManager,
         onTapSensitivityChanged: (sensitivity) {
-          // Handle tap sensitivity change
+          // Notify game of settings change
+          widget.onSettingsChanged?.call();
         },
         onDoubleTapTimingChanged: (timing) {
-          // Handle double-tap timing change
+          // Notify game of settings change
+          widget.onSettingsChanged?.call();
         },
       ),
     );
@@ -247,7 +257,9 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
         settingsManager: _settingsManager,
         performanceMonitor: _performanceMonitor,
         onPerformanceMonitorToggled: (enabled) {
-          // Handle performance monitor toggle
+          // Notify game of settings change
+          widget.onSettingsChanged?.call();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(

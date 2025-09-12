@@ -10,7 +10,8 @@ import '../managers/difficulty_manager.dart';
 class DigitalBarrier extends Obstacle {
   // Barrier properties
   static const double barrierWidth = 60.0;
-  static const double gapHeight = 150.0;
+  static const double baseGapHeight = 150.0;
+  late double gapHeight;
   late double topBarrierHeight;
   late double bottomBarrierHeight;
   
@@ -24,10 +25,17 @@ class DigitalBarrier extends Obstacle {
   // Animation properties
   double animationTime = 0.0;
   
-  DigitalBarrier({required Vector2 startPosition, required double worldHeight}) {
+  DigitalBarrier({
+    required Vector2 startPosition, 
+    required double worldHeight,
+    double gapSizeMultiplier = 1.0,
+  }) {
     type = ObstacleType.digitalBarrier;
     position = startPosition;
     size = Vector2(barrierWidth, worldHeight);
+    
+    // Apply difficulty-based gap size
+    gapHeight = baseGapHeight * gapSizeMultiplier;
     
     // Calculate barrier heights with gap in the middle
     _calculateBarrierHeights(worldHeight);

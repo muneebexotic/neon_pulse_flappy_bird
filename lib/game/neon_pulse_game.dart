@@ -9,6 +9,7 @@ import 'managers/pulse_manager.dart';
 import 'managers/audio_manager.dart';
 import 'managers/power_up_manager.dart';
 import 'managers/customization_manager.dart';
+import 'managers/settings_manager.dart';
 import 'components/cyberpunk_background.dart';
 import 'effects/neon_colors.dart';
 import 'utils/performance_monitor.dart';
@@ -41,6 +42,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   // Customization system
   final CustomizationManager _customizationManager = CustomizationManager();
   
+  // Settings system
+  final SettingsManager _settingsManager = SettingsManager();
+  
   // Performance monitoring
   final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
   
@@ -56,8 +60,16 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   Future<void> onLoad() async {
     super.onLoad();
     
-    // Initialize audio system
+    // Initialize settings system first
+    await _settingsManager.initialize();
+    
+    // Initialize audio system with settings
     await _audioManager.initialize();
+    _audioManager.setMusicVolume(_settingsManager.musicVolume);
+    _audioManager.setSfxVolume(_settingsManager.sfxVolume);
+    if (!_settingsManager.musicEnabled) await _audioManager.toggleMusic();
+    if (!_settingsManager.sfxEnabled) await _audioManager.toggleSfx();
+    if (!_settingsManager.beatSyncEnabled) await _audioManager.toggleBeatDetection();
     
     // Initialize customization system
     await _customizationManager.initialize();
@@ -108,7 +120,10 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
 
   /// Initialize input handling system
   void _setupInputHandler() {
-    inputHandler = InputHandler();
+    inputHandler = InputHandler(
+      tapSensitivity: _settingsManager.tapSensitivity,
+      doubleTapTiming: _settingsManager.doubleTapTiming,
+    );
     
     // Set up input callbacks
     inputHandler.onSingleTap = _handleSingleTap;
@@ -117,7 +132,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       debugPrint('Tap at screen position: $position');
     };
     
-    debugPrint('Input handler initialized');
+    debugPrint('Input handler initialized with sensitivity: ${_settingsManager.tapSensitivity}, double-tap timing: ${_settingsManager.doubleTapTiming}ms');
   }
 
   /// Initialize game components
@@ -178,12 +193,17 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   void update(double dt) {
     super.update(dt);
     
-    // Record frame for performance monitoring
-    _performanceMonitor.recordFrame();
+    // Record frame for performance monitoring (if enabled)
+    if (_settingsManager.performanceMonitorEnabled) {
+      _performanceMonitor.recordFrame();
+    }
     
-    // Adjust particle quality based on performance
-    if (!_performanceMonitor.isPerformanceGood) {
-      bird.particleSystem.setQuality(_performanceMonitor.performanceQuality * 0.5);
+    // Apply graphics and particle quality settings
+    _applyQualitySettings();
+    
+    // Auto-adjust quality based on performance if enabled
+    if (_settingsManager.autoQualityAdjustment && _settingsManager.performanceMonitorEnabled) {
+      _autoAdjustQuality();
     }
     
     // Update game state and components based on current status
@@ -224,8 +244,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     // final adjustedDt = dt * gameState.gameSpeedMultiplier;
     
     // Update obstacle manager with current difficulty and speed modifiers
-    final effectiveGameSpeed = gameState.gameSpeed * gameState.gameSpeedMultiplier;
-    obstacleManager.updateDifficulty(effectiveGameSpeed, gameState.difficultyLevel);
+    final baseDifficultyMultiplier = _settingsManager.difficultyLevel.speedMultiplier;
+    final effectiveGameSpeed = gameState.gameSpeed * gameState.gameSpeedMultiplier * baseDifficultyMultiplier;
+    obstacleManager.updateDifficulty(effectiveGameSpeed, gameState.difficultyLevel, _settingsManager.difficultyLevel);
     
     // Update pulse manager and bird pulse charge indicator
     final pulseChargeColor = pulseManager.getPulseChargeColor();
@@ -431,6 +452,12 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   /// Get customization manager for UI access
   CustomizationManager get customizationManager => _customizationManager;
   
+  /// Get settings manager for UI access
+  SettingsManager get settingsManager => _settingsManager;
+  
+  /// Get performance monitor for UI access
+  PerformanceMonitor get performanceMonitor => _performanceMonitor;
+  
   /// Check for newly unlocked skins based on current score
   Future<void> _checkSkinUnlocks() async {
     final newlyUnlocked = await _customizationManager.checkAndUnlockSkins(gameState.currentScore);
@@ -485,5 +512,95 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       bird.updateSkin(_customizationManager.selectedSkin);
       debugPrint('Bird skin updated to: ${_customizationManager.selectedSkin.name}');
     }
+  }
+  
+  /// Apply graphics and particle quality settings
+  void _applyQualitySettings() {
+    // Apply particle quality settings
+    final particleQuality = _settingsManager.particleQuality;
+    bird.particleSystem.setMaxParticles(particleQuality.maxParticles);
+    
+    // Apply graphics quality settings to background
+    switch (_settingsManager.graphicsQuality) {
+      case GraphicsQuality.low:
+        background.setGridAnimationSpeed(0.2);
+        background.setColorShiftSpeed(0.1);
+        break;
+      case GraphicsQuality.medium:
+        background.setGridAnimationSpeed(0.4);
+        background.setColorShiftSpeed(0.2);
+        break;
+      case GraphicsQuality.high:
+        background.setGridAnimationSpeed(0.6);
+        background.setColorShiftSpeed(0.4);
+        break;
+      case GraphicsQuality.ultra:
+        background.setGridAnimationSpeed(0.8);
+        background.setColorShiftSpeed(0.6);
+        break;
+      case GraphicsQuality.auto:
+        // Auto quality is handled by _autoAdjustQuality
+        break;
+    }
+  }
+  
+  /// Auto-adjust quality based on performance
+  void _autoAdjustQuality() {
+    if (!_performanceMonitor.isPerformanceGood) {
+      final performanceScore = _performanceMonitor.performanceQuality;
+      
+      // Auto-adjust graphics quality if set to auto
+      if (_settingsManager.graphicsQuality == GraphicsQuality.auto) {
+        final recommendedGraphics = _settingsManager.getRecommendedGraphicsQuality(performanceScore);
+        _applyGraphicsQuality(recommendedGraphics);
+      }
+      
+      // Auto-adjust particle quality
+      final recommendedParticles = _settingsManager.getRecommendedParticleQuality(performanceScore);
+      bird.particleSystem.setMaxParticles(recommendedParticles.maxParticles);
+    }
+  }
+  
+  /// Apply specific graphics quality level
+  void _applyGraphicsQuality(GraphicsQuality quality) {
+    switch (quality) {
+      case GraphicsQuality.low:
+        background.setGridAnimationSpeed(0.2);
+        background.setColorShiftSpeed(0.1);
+        break;
+      case GraphicsQuality.medium:
+        background.setGridAnimationSpeed(0.4);
+        background.setColorShiftSpeed(0.2);
+        break;
+      case GraphicsQuality.high:
+        background.setGridAnimationSpeed(0.6);
+        background.setColorShiftSpeed(0.4);
+        break;
+      case GraphicsQuality.ultra:
+        background.setGridAnimationSpeed(0.8);
+        background.setColorShiftSpeed(0.6);
+        break;
+      case GraphicsQuality.auto:
+        // Should not reach here in auto-adjustment
+        break;
+    }
+  }
+  
+  /// Update settings from UI (called when settings change)
+  Future<void> updateSettings() async {
+    // Update audio settings
+    await _audioManager.setMusicVolume(_settingsManager.musicVolume);
+    await _audioManager.setSfxVolume(_settingsManager.sfxVolume);
+    
+    // Update input handler settings
+    inputHandler.updateSettings(
+      tapSensitivity: _settingsManager.tapSensitivity,
+      doubleTapTiming: _settingsManager.doubleTapTiming,
+    );
+    
+    // Apply quality settings immediately
+    _applyQualitySettings();
+    
+    debugPrint('Game settings updated');
   }
 }
