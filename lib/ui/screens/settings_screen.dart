@@ -1,16 +1,54 @@
 import 'package:flutter/material.dart';
 import '../components/audio_settings.dart';
+import '../components/graphics_settings.dart';
+import '../components/difficulty_settings.dart';
+import '../components/control_settings.dart';
+import '../components/performance_settings.dart';
 import '../theme/neon_theme.dart';
 import '../../game/managers/audio_manager.dart';
+import '../../game/managers/settings_manager.dart';
+import '../../game/utils/performance_monitor.dart';
 
-/// Settings screen with audio controls and other game settings
-class SettingsScreen extends StatelessWidget {
+/// Enhanced settings screen with comprehensive game settings
+class SettingsScreen extends StatefulWidget {
   final AudioManager? audioManager;
+  final SettingsManager? settingsManager;
+  final PerformanceMonitor? performanceMonitor;
   
   const SettingsScreen({
     super.key,
     this.audioManager,
+    this.settingsManager,
+    this.performanceMonitor,
   });
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
+  late SettingsManager _settingsManager;
+  late PerformanceMonitor _performanceMonitor;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+    _settingsManager = widget.settingsManager ?? SettingsManager();
+    _performanceMonitor = widget.performanceMonitor ?? PerformanceMonitor();
+    
+    // Initialize settings manager if not provided
+    if (widget.settingsManager == null) {
+      _settingsManager.initialize();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,58 +68,22 @@ class SettingsScreen extends StatelessWidget {
           child: Column(
             children: [
               // Header
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(
-                        Icons.arrow_back,
-                        color: NeonTheme.electricBlue,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'SETTINGS',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: NeonTheme.electricBlue,
-                        letterSpacing: 3,
-                        shadows: NeonTheme.getNeonGlow(NeonTheme.electricBlue),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildHeader(context),
               
-              // Settings content
+              // Tab Bar
+              _buildTabBar(),
+              
+              // Tab Content
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Audio Settings
-                      if (audioManager != null) ...[
-                        AudioSettings(audioManager: audioManager!),
-                        const SizedBox(height: 30),
-                      ],
-                      
-                      // Game Settings
-                      _buildGameSettings(context),
-                      const SizedBox(height: 30),
-                      
-                      // Performance Settings
-                      _buildPerformanceSettings(context),
-                      const SizedBox(height: 30),
-                      
-                      // About Section
-                      _buildAboutSection(context),
-                    ],
-                  ),
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildGraphicsTab(),
+                    _buildGameplayTab(),
+                    _buildControlsTab(),
+                    _buildAudioTab(),
+                    _buildPerformanceTab(),
+                  ],
                 ),
               ),
             ],
@@ -91,143 +93,177 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildGameSettings(BuildContext context) {
-    return Container(
+  Widget _buildHeader(BuildContext context) {
+    return Padding(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: NeonTheme.darkPurple.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: NeonTheme.hotPink.withOpacity(0.5),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: NeonTheme.hotPink.withOpacity(0.3),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            'Game Settings',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: NeonTheme.hotPink,
-              shadows: NeonTheme.getNeonGlow(NeonTheme.hotPink),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: Icon(
+              Icons.arrow_back,
+              color: NeonTheme.electricBlue,
+              size: 28,
             ),
           ),
-          const SizedBox(height: 20),
-          
-          _buildSettingRow(
-            'Difficulty',
-            'Normal',
-            Icons.speed,
-            () {
-              // TODO: Implement difficulty selection
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Difficulty settings coming soon!'),
-                  backgroundColor: NeonTheme.hotPink,
-                ),
-              );
-            },
-          ),
-          
-          const SizedBox(height: 15),
-          
-          _buildSettingRow(
-            'Controls',
-            'Tap & Double-tap',
-            Icons.touch_app,
-            () {
-              // TODO: Implement control customization
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Control customization coming soon!'),
-                  backgroundColor: NeonTheme.hotPink,
-                ),
-              );
-            },
+          const SizedBox(width: 10),
+          Text(
+            'SETTINGS',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: NeonTheme.electricBlue,
+              letterSpacing: 3,
+              shadows: NeonTheme.getNeonGlow(NeonTheme.electricBlue),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPerformanceSettings(BuildContext context) {
+  Widget _buildTabBar() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: NeonTheme.darkPurple.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(15),
+        color: NeonTheme.charcoal.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: NeonTheme.neonGreen.withOpacity(0.5),
-          width: 2,
+          color: NeonTheme.electricBlue.withOpacity(0.3),
+          width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: NeonTheme.neonGreen.withOpacity(0.3),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Performance',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: NeonTheme.neonGreen,
-              shadows: NeonTheme.getNeonGlow(NeonTheme.neonGreen),
-            ),
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        indicatorColor: NeonTheme.electricBlue,
+        indicatorWeight: 3,
+        labelColor: NeonTheme.electricBlue,
+        unselectedLabelColor: NeonTheme.white.withOpacity(0.6),
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        tabs: const [
+          Tab(
+            icon: Icon(Icons.auto_awesome, size: 20),
+            text: 'Graphics',
           ),
-          const SizedBox(height: 20),
-          
-          _buildSettingRow(
-            'Graphics Quality',
-            'Auto',
-            Icons.auto_awesome,
-            () {
-              // TODO: Implement graphics quality settings
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Graphics settings coming soon!'),
-                  backgroundColor: NeonTheme.neonGreen,
-                ),
-              );
-            },
+          Tab(
+            icon: Icon(Icons.gamepad, size: 20),
+            text: 'Gameplay',
           ),
-          
-          const SizedBox(height: 15),
-          
-          _buildSettingRow(
-            'Particle Effects',
-            'High',
-            Icons.auto_fix_high,
-            () {
-              // TODO: Implement particle quality settings
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Particle settings coming soon!'),
-                  backgroundColor: NeonTheme.neonGreen,
-                ),
-              );
-            },
+          Tab(
+            icon: Icon(Icons.touch_app, size: 20),
+            text: 'Controls',
+          ),
+          Tab(
+            icon: Icon(Icons.volume_up, size: 20),
+            text: 'Audio',
+          ),
+          Tab(
+            icon: Icon(Icons.speed, size: 20),
+            text: 'Performance',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAboutSection(BuildContext context) {
+  Widget _buildGraphicsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: GraphicsSettings(
+        settingsManager: _settingsManager,
+        performanceMonitor: _performanceMonitor,
+        onGraphicsQualityChanged: (quality) {
+          // Handle graphics quality change
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Graphics quality set to ${quality.displayName}'),
+              backgroundColor: NeonTheme.neonGreen,
+            ),
+          );
+        },
+        onParticleQualityChanged: (quality) {
+          // Handle particle quality change
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Particle quality set to ${quality.displayName}'),
+              backgroundColor: NeonTheme.hotPink,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildGameplayTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: DifficultySettings(
+        settingsManager: _settingsManager,
+        onDifficultyChanged: (difficulty) {
+          // Handle difficulty change
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Difficulty set to ${difficulty.displayName}'),
+              backgroundColor: NeonTheme.warningOrange,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildControlsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: ControlSettings(
+        settingsManager: _settingsManager,
+        onTapSensitivityChanged: (sensitivity) {
+          // Handle tap sensitivity change
+        },
+        onDoubleTapTimingChanged: (timing) {
+          // Handle double-tap timing change
+        },
+      ),
+    );
+  }
+
+  Widget _buildAudioTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: widget.audioManager != null
+          ? AudioSettings(audioManager: widget.audioManager!)
+          : _buildAudioUnavailable(),
+    );
+  }
+
+  Widget _buildPerformanceTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: PerformanceSettings(
+        settingsManager: _settingsManager,
+        performanceMonitor: _performanceMonitor,
+        onPerformanceMonitorToggled: (enabled) {
+          // Handle performance monitor toggle
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                enabled 
+                  ? 'Performance monitor enabled' 
+                  : 'Performance monitor disabled'
+              ),
+              backgroundColor: NeonTheme.electricBlue,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAudioUnavailable() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -237,53 +273,30 @@ class SettingsScreen extends StatelessWidget {
           color: NeonTheme.warningOrange.withOpacity(0.5),
           width: 2,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: NeonTheme.warningOrange.withOpacity(0.3),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Icon(
+            Icons.volume_off,
+            size: 48,
+            color: NeonTheme.warningOrange,
+          ),
+          const SizedBox(height: 16),
           Text(
-            'About',
+            'Audio Unavailable',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: NeonTheme.warningOrange,
-              shadows: NeonTheme.getNeonGlow(NeonTheme.warningOrange),
-            ),
-          ),
-          const SizedBox(height: 20),
-          
-          Text(
-            'Neon Pulse Flappy Bird',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: NeonTheme.electricBlue,
             ),
           ),
           const SizedBox(height: 8),
-          
           Text(
-            'Version 1.0.0',
+            'Audio manager not initialized',
             style: TextStyle(
-              fontSize: 14,
-              color: NeonTheme.neonGreen.withOpacity(0.8),
-            ),
-          ),
-          const SizedBox(height: 15),
-          
-          Text(
-            'A cyberpunk-themed Flappy Bird game with neon effects, pulse mechanics, and beat-synchronized gameplay.',
-            style: TextStyle(
-              fontSize: 14,
-              color: NeonTheme.white.withOpacity(0.8),
-              height: 1.4,
+              fontSize: 16,
+              color: NeonTheme.white.withOpacity(0.7),
             ),
           ),
         ],
@@ -291,50 +304,5 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingRow(String title, String value, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: NeonTheme.electricBlue.withOpacity(0.8),
-              size: 24,
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: NeonTheme.white,
-                    ),
-                  ),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: NeonTheme.electricBlue.withOpacity(0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              color: NeonTheme.electricBlue.withOpacity(0.5),
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 }
