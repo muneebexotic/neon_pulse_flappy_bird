@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="neon_pulse_flappy_bird"
+        android:label="Neon Pulse"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

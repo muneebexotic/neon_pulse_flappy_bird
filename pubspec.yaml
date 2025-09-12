@@ -1,5 +1,5 @@
 name: neon_pulse_flappy_bird
-description: "A cyberpunk-themed Flappy Bird game with neon effects and pulse mechanics."
+description: "Neon Pulse - A cyberpunk-themed Flappy Bird game with stunning neon effects, energy pulse mechanics, and beat-synchronized gameplay."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -76,6 +76,7 @@ flutter:
   assets:
     - assets/images/
     - assets/audio/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

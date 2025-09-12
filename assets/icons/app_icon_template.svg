@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradient background -->
+    <radialGradient id="backgroundGradient" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" style="stop-color:#1A0B2E;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0B0B1F;stop-opacity:1" />
+    </radialGradient>
+    
+    <!-- Neon glow filter -->
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Pulse effect -->
+    <filter id="pulseGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="15" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="url(#backgroundGradient)"/>
+  
+  <!-- Pulse ring (subtle) -->
+  <circle cx="512" cy="512" r="400" fill="none" stroke="#00FFFF" stroke-width="2" opacity="0.3" filter="url(#pulseGlow)"/>
+  
+  <!-- Bird body (main shape) -->
+  <ellipse cx="512" cy="512" rx="180" ry="120" fill="#00FFFF" filter="url(#neonGlow)"/>
+  
+  <!-- Bird beak -->
+  <polygon points="692,512 772,492 772,532" fill="#FF1493" filter="url(#neonGlow)"/>
+  
+  <!-- Bird tail -->
+  <polygon points="332,472 232,432 252,512 332,532" fill="#39FF14" filter="url(#neonGlow)"/>
+  
+  <!-- Bird eye -->
+  <circle cx="580" cy="480" r="25" fill="#FFFFFF"/>
+  <circle cx="585" cy="475" r="15" fill="#0B0B1F"/>
+  
+  <!-- Particle trail -->
+  <circle cx="200" cy="500" r="8" fill="#00FFFF" opacity="0.8" filter="url(#neonGlow)"/>
+  <circle cx="150" cy="520" r="6" fill="#FF1493" opacity="0.6" filter="url(#neonGlow)"/>
+  <circle cx="100" cy="490" r="4" fill="#39FF14" opacity="0.4" filter="url(#neonGlow)"/>
+  <circle cx="50" cy="510" r="3" fill="#00FFFF" opacity="0.3" filter="url(#neonGlow)"/>
+  
+  <!-- Additional glow particles -->
+  <circle cx="300" cy="450" r="3" fill="#00FFFF" opacity="0.5"/>
+  <circle cx="280" cy="580" r="2" fill="#FF1493" opacity="0.4"/>
+  <circle cx="320" cy="600" r="2" fill="#39FF14" opacity="0.3"/>
+</svg>
