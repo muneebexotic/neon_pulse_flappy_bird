@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'customization_screen.dart';
@@ -6,6 +7,8 @@ import 'achievements_screen.dart';
 import '../../game/managers/customization_manager.dart';
 import '../../game/managers/achievement_manager.dart';
 import '../../game/managers/audio_manager.dart';
+import '../utils/transition_manager.dart';
+import '../utils/animation_config.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -29,6 +32,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Future<void> _initializeCustomization() async {
     await _customizationManager.initialize();
     await _achievementManager.initialize();
+    
+    // Start background music with fade-in
+    try {
+      await AudioManager().playBackgroundMusic(
+        'cyberpunk_theme.mp3',
+        fadeIn: true,
+        fadeDuration: AnimationConfig.slow,
+      );
+    } catch (e) {
+      print('Failed to start background music: $e');
+    }
+    
     if (mounted) {
       setState(() {
         _isInitialized = true;
@@ -57,15 +72,19 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Game title
-                Text(
-                  'NEON PULSE',
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    fontSize: 48,
-                    letterSpacing: 4,
+                // Game title with animations
+                TransitionManager.floatingAnimation(
+                  Text(
+                    'NEON PULSE',
+                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                      fontSize: 48,
+                      letterSpacing: 4,
+                    ),
                   ),
-                ),
+                ).animate().fadeIn(duration: AnimationConfig.slow.inMilliseconds.ms).slideY(begin: -0.3, end: 0),
+                
                 const SizedBox(height: 8),
+                
                 Text(
                   'FLAPPY BIRD',
                   style: Theme.of(context).textTheme.displayLarge?.copyWith(
@@ -77,66 +96,74 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         color: Colors.pink,
                         offset: Offset(0, 0),
                       ),
+                      const Shadow(
+                        blurRadius: 20.0,
+                        color: Colors.pink,
+                        offset: Offset(0, 0),
+                      ),
                     ],
                   ),
-                ),
+                ).animate().fadeIn(delay: AnimationConfig.medium.inMilliseconds.ms, duration: AnimationConfig.slow.inMilliseconds.ms).slideY(begin: 0.3, end: 0),
                 const SizedBox(height: 80),
                 
-                // Menu buttons
-                _buildMenuButton(
-                  context,
-                  'PLAY',
-                  _isInitialized ? () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => GameScreen(
-                          achievementManager: _achievementManager,
-                          customizationManager: _customizationManager,
+                // Menu buttons with staggered animations
+                ...TransitionManager.staggeredChildren([
+                  _buildMenuButton(
+                    context,
+                    'PLAY',
+                    _isInitialized ? () {
+                      Navigator.of(context).push(
+                        TransitionManager.neonTransition(
+                          GameScreen(
+                            achievementManager: _achievementManager,
+                            customizationManager: _customizationManager,
+                          ),
+                          glowColor: Colors.green,
                         ),
-                      ),
-                    );
-                  } : null,
-                ),
-                const SizedBox(height: 20),
-                _buildMenuButton(
-                  context,
-                  'CUSTOMIZE',
-                  _isInitialized ? () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => CustomizationScreen(
-                          customizationManager: _customizationManager,
+                      );
+                    } : null,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildMenuButton(
+                    context,
+                    'CUSTOMIZE',
+                    _isInitialized ? () {
+                      Navigator.of(context).push(
+                        TransitionManager.slideTransition(
+                          CustomizationScreen(
+                            customizationManager: _customizationManager,
+                          ),
                         ),
-                      ),
-                    );
-                  } : null,
-                ),
-                const SizedBox(height: 20),
-                _buildMenuButton(
-                  context,
-                  'ACHIEVEMENTS',
-                  _isInitialized ? () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => AchievementsScreen(
-                          achievementManager: _achievementManager,
+                      );
+                    } : null,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildMenuButton(
+                    context,
+                    'ACHIEVEMENTS',
+                    _isInitialized ? () {
+                      Navigator.of(context).push(
+                        TransitionManager.scaleTransition(
+                          AchievementsScreen(
+                            achievementManager: _achievementManager,
+                          ),
                         ),
-                      ),
-                    );
-                  } : null,
-                ),
-                const SizedBox(height: 20),
-                _buildMenuButton(
-                  context,
-                  'SETTINGS',
-                  () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const SettingsScreen(),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    } : null,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildMenuButton(
+                    context,
+                    'SETTINGS',
+                    () {
+                      Navigator.of(context).push(
+                        TransitionManager.fadeTransition(
+                          const SettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ], staggerDelay: AnimationConfig.menuButtonDelay),
 
               ],
             ),
@@ -147,20 +174,50 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Widget _buildMenuButton(BuildContext context, String text, VoidCallback? onPressed) {
-    return SizedBox(
+    final isEnabled = onPressed != null;
+    
+    Widget button = SizedBox(
       width: 200,
       height: 50,
       child: ElevatedButton(
         onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: isEnabled ? Colors.cyan : Colors.grey,
+          side: BorderSide(
+            color: isEnabled ? Colors.cyan : Colors.grey,
+            width: 2,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          shadowColor: isEnabled ? Colors.cyan.withOpacity(0.5) : null,
+          elevation: isEnabled ? 8 : 0,
+        ),
         child: Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
+            color: isEnabled ? Colors.cyan : Colors.grey,
+            shadows: isEnabled ? [
+              const Shadow(
+                blurRadius: 8.0,
+                color: Colors.cyan,
+                offset: Offset(0, 0),
+              ),
+            ] : null,
           ),
         ),
       ),
     );
+    
+    // Add pulse animation for enabled buttons
+    if (isEnabled) {
+      button = TransitionManager.pulseButton(button);
+    }
+    
+    return button;
   }
 }

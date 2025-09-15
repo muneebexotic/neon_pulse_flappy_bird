@@ -93,9 +93,25 @@ class _GameScreenState extends State<GameScreen>
 
   @override
   void dispose() {
+    // Fade out background music when leaving game
+    _fadeOutAudio();
+    
     WidgetsBinding.instance.removeObserver(this);
     _gameStateController.dispose();
     super.dispose();
+  }
+
+  /// Fade out audio when leaving the game screen
+  void _fadeOutAudio() {
+    try {
+      // Don't await this - let it run in background
+      game.audioManager.stopBackgroundMusic(
+        fadeOut: true,
+        fadeDuration: const Duration(milliseconds: 500),
+      );
+    } catch (e) {
+      print('Error fading out audio: $e');
+    }
   }
 
   Future<void> _initializeAchievementTracking() async {

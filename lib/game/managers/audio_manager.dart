@@ -91,8 +91,8 @@ class AudioManager {
     print('AudioManager: Note - Some files may be placeholders and will fail to play');
   }
 
-  /// Start playing background music with beat detection
-  Future<void> playBackgroundMusic(String musicFile) async {
+  /// Start playing background music with beat detection and fade-in
+  Future<void> playBackgroundMusic(String musicFile, {bool fadeIn = false, Duration fadeDuration = const Duration(milliseconds: 1000)}) async {
     print('AudioManager: Attempting to play background music: $musicFile');
     print('AudioManager: Music enabled: $_isMusicEnabled, Volume: $_musicVolume');
     
@@ -102,8 +102,9 @@ class AudioManager {
     }
     
     try {
-      print('AudioManager: Setting volume to $_musicVolume');
-      await _musicPlayer.setVolume(_musicVolume);
+      // Set initial volume (0 if fading in, normal if not)
+      final initialVolume = fadeIn ? 0.0 : _musicVolume;
+      await _musicPlayer.setVolume(initialVolume);
       
       final assetPath = 'audio/music/$musicFile';
       print('AudioManager: Playing asset: $assetPath');
@@ -115,6 +116,11 @@ class AudioManager {
       await _musicPlayer.play(source);
       
       print('AudioManager: Music playback started successfully');
+      
+      // Fade in if requested
+      if (fadeIn) {
+        await _fadeInMusic(fadeDuration);
+      }
       
       if (_beatDetectionEnabled) {
         print('AudioManager: Starting beat detection');
@@ -131,8 +137,36 @@ class AudioManager {
     }
   }
 
-  /// Stop background music and beat detection
-  Future<void> stopBackgroundMusic() async {
+  /// Fade in the background music
+  Future<void> _fadeInMusic(Duration duration) async {
+    const steps = 20;
+    final stepDuration = Duration(milliseconds: duration.inMilliseconds ~/ steps);
+    final volumeStep = _musicVolume / steps;
+    
+    for (int i = 1; i <= steps; i++) {
+      await Future.delayed(stepDuration);
+      await _musicPlayer.setVolume(volumeStep * i);
+    }
+  }
+
+  /// Fade out the background music
+  Future<void> _fadeOutMusic(Duration duration) async {
+    const steps = 20;
+    final stepDuration = Duration(milliseconds: duration.inMilliseconds ~/ steps);
+    final currentVolume = _musicVolume;
+    final volumeStep = currentVolume / steps;
+    
+    for (int i = steps - 1; i >= 0; i--) {
+      await Future.delayed(stepDuration);
+      await _musicPlayer.setVolume(volumeStep * i);
+    }
+  }
+
+  /// Stop background music and beat detection with optional fade-out
+  Future<void> stopBackgroundMusic({bool fadeOut = false, Duration fadeDuration = const Duration(milliseconds: 1000)}) async {
+    if (fadeOut && _musicPlayer.state == PlayerState.playing) {
+      await _fadeOutMusic(fadeDuration);
+    }
     await _musicPlayer.stop();
     _stopBeatDetection();
   }
