@@ -1,0 +1,266 @@
+name: Release to App Stores
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        default: '1.0.0'
+      deploy_android:
+        description: 'Deploy to Google Play'
+        type: boolean
+        default: true
+      deploy_ios:
+        description: 'Deploy to App Store'
+        type: boolean
+        default: true
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  # Prepare release
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Extract version information
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "release" ]; then
+          VERSION="${{ github.event.release.tag_name }}"
+        else
+          VERSION="${{ github.event.inputs.version }}"
+        fi
+        
+        # Remove 'v' prefix if present
+        VERSION=${VERSION#v}
+        
+        # Extract build number from version (e.g., 1.0.0+1 -> 1)
+        if [[ $VERSION == *"+"* ]]; then
+          BUILD_NUMBER=${VERSION#*+}
+          VERSION=${VERSION%+*}
+        else
+          BUILD_NUMBER=${{ github.run_number }}
+        fi
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION+$BUILD_NUMBER"
+
+  # Build and deploy Android
+  deploy-android:
+    name: Deploy to Google Play
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: github.event.inputs.deploy_android != 'false'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: ${{ env.JAVA_VERSION }}
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        
+    - name: Configure keystore
+      run: |
+        echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/keystore/neon-pulse-keystore.jks
+        echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+        echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+        echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+        echo "storeFile=../keystore/neon-pulse-keystore.jks" >> android/key.properties
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Update version
+      run: |
+        sed -i "s/version: .*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Get dependencies
+      run: flutter pub get
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Optimize assets
+      run: dart build_scripts/optimize_assets.dart
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Build App Bundle
+      run: |
+        flutter build appbundle --release \
+          --no-tree-shake-icons \
+          --no-shrink \
+          --build-name=${{ needs.prepare.outputs.version }} \
+          --build-number=${{ needs.prepare.outputs.build_number }}
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Upload to Google Play Console
+      uses: r0adkll/upload-google-play@v1
+      with:
+        serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+        packageName: com.neonpulse.flappybird
+        releaseFiles: neon_pulse_flappy_bird/build/app/outputs/bundle/release/app-release.aab
+        track: production
+        status: completed
+        whatsNewDirectory: store_assets/release_notes/
+        mappingFile: neon_pulse_flappy_bird/build/app/outputs/mapping/release/mapping.txt
+
+  # Build and deploy iOS
+  deploy-ios:
+    name: Deploy to App Store
+    runs-on: macos-latest
+    needs: prepare
+    if: github.event.inputs.deploy_ios != 'false'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+        
+    - name: Install Apple certificates
+      uses: apple-actions/import-codesign-certs@v2
+      with:
+        p12-file-base64: ${{ secrets.IOS_CERTIFICATE }}
+        p12-password: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+        
+    - name: Install provisioning profile
+      uses: apple-actions/download-provisioning-profiles@v1
+      with:
+        bundle-id: com.neonpulse.flappybird
+        issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+        api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+        api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        
+    - name: Update version
+      run: |
+        sed -i '' "s/version: .*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Get dependencies
+      run: flutter pub get
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Optimize assets
+      run: dart build_scripts/optimize_assets.dart
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Build iOS
+      run: |
+        flutter build ios --release \
+          --no-tree-shake-icons \
+          --build-name=${{ needs.prepare.outputs.version }} \
+          --build-number=${{ needs.prepare.outputs.build_number }}
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Build and archive
+      run: |
+        xcodebuild -workspace ios/Runner.xcworkspace \
+          -scheme Runner \
+          -configuration Release \
+          -archivePath build/ios/Runner.xcarchive \
+          archive
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Export IPA
+      run: |
+        xcodebuild -exportArchive \
+          -archivePath build/ios/Runner.xcarchive \
+          -exportPath build/ios/ipa \
+          -exportOptionsPlist ios/ExportOptions.plist
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Upload to App Store Connect
+      uses: apple-actions/upload-testflight-build@v1
+      with:
+        app-path: neon_pulse_flappy_bird/build/ios/ipa/Neon Pulse.ipa
+        issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+        api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+        api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+
+  # Post-deployment tasks
+  post-deploy:
+    name: Post-Deployment Tasks
+    runs-on: ubuntu-latest
+    needs: [deploy-android, deploy-ios]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Create deployment summary
+      run: |
+        echo "# Neon Pulse Deployment Summary" > deployment_summary.md
+        echo "" >> deployment_summary.md
+        echo "**Version:** ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}" >> deployment_summary.md
+        echo "**Date:** $(date)" >> deployment_summary.md
+        echo "**Commit:** ${{ github.sha }}" >> deployment_summary.md
+        echo "" >> deployment_summary.md
+        
+        if [ "${{ needs.deploy-android.result }}" == "success" ]; then
+          echo "✅ **Android:** Successfully deployed to Google Play" >> deployment_summary.md
+        else
+          echo "❌ **Android:** Deployment failed" >> deployment_summary.md
+        fi
+        
+        if [ "${{ needs.deploy-ios.result }}" == "success" ]; then
+          echo "✅ **iOS:** Successfully deployed to App Store" >> deployment_summary.md
+        else
+          echo "❌ **iOS:** Deployment failed" >> deployment_summary.md
+        fi
+        
+        echo "" >> deployment_summary.md
+        echo "## Next Steps" >> deployment_summary.md
+        echo "- Monitor app store review process" >> deployment_summary.md
+        echo "- Update release notes and marketing materials" >> deployment_summary.md
+        echo "- Prepare for user feedback and support" >> deployment_summary.md
+        
+    - name: Upload deployment summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-summary
+        path: deployment_summary.md
+        retention-days: 90
+        
+    - name: Update release with deployment info
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: deployment_summary.md
+        append_body: true
+        body: |
+          
+          ## Deployment Status
+          - Android: ${{ needs.deploy-android.result == 'success' && '✅ Deployed' || '❌ Failed' }}
+          - iOS: ${{ needs.deploy-ios.result == 'success' && '✅ Deployed' || '❌ Failed' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

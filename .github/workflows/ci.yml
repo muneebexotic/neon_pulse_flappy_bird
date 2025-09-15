@@ -1,0 +1,286 @@
+name: Neon Pulse CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  # Code quality and testing
+  test:
+    name: Test and Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: ${{ env.JAVA_VERSION }}
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        
+    - name: Get dependencies
+      run: flutter pub get
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Verify formatting
+      run: dart format --output=none --set-exit-if-changed .
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Analyze code
+      run: flutter analyze
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Run tests
+      run: flutter test --coverage
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./neon_pulse_flappy_bird/coverage/lcov.info
+        flags: unittests
+        name: neon-pulse-coverage
+
+  # Android build
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' || github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: ${{ env.JAVA_VERSION }}
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        
+    - name: Get dependencies
+      run: flutter pub get
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Optimize assets
+      run: dart build_scripts/optimize_assets.dart
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Build APK (Debug)
+      if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+      run: flutter build apk --debug
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Build APK (Release)
+      if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+      run: |
+        flutter build apk --release --no-tree-shake-icons --no-shrink
+        flutter build appbundle --release --no-tree-shake-icons --no-shrink
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk
+        path: neon_pulse_flappy_bird/build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
+        
+    - name: Upload AAB artifact
+      if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-aab
+        path: neon_pulse_flappy_bird/build/app/outputs/bundle/release/app-release.aab
+        retention-days: 30
+        
+    - name: Upload debug symbols
+      if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-symbols
+        path: neon_pulse_flappy_bird/build/app/outputs/symbols/
+        retention-days: 90
+
+  # iOS build
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+    needs: test
+    if: github.event_name == 'push' || github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        
+    - name: Get dependencies
+      run: flutter pub get
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Optimize assets
+      run: dart build_scripts/optimize_assets.dart
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Build iOS (Debug)
+      if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+      run: flutter build ios --debug --no-codesign
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Build iOS (Release)
+      if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+      run: flutter build ios --release --no-codesign --no-tree-shake-icons
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Upload iOS build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-build
+        path: neon_pulse_flappy_bird/build/ios/iphoneos/Runner.app
+        retention-days: 30
+        
+    - name: Upload iOS debug symbols
+      if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-symbols
+        path: neon_pulse_flappy_bird/build/ios/symbols/
+        retention-days: 90
+
+  # Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run dependency vulnerability scan
+      uses: securecodewarrior/github-action-add-sarif@v1
+      with:
+        sarif-file: 'security-scan-results.sarif'
+      continue-on-error: true
+      
+    - name: Upload security scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: security-scan-results.sarif
+      continue-on-error: true
+
+  # Performance testing
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        
+    - name: Get dependencies
+      run: flutter pub get
+      working-directory: ./neon_pulse_flappy_bird
+      
+    - name: Run performance tests
+      run: flutter test test/performance/
+      working-directory: ./neon_pulse_flappy_bird
+      continue-on-error: true
+
+  # Release deployment
+  deploy:
+    name: Deploy Release
+    runs-on: ubuntu-latest
+    needs: [build-android, build-ios]
+    if: github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download Android artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: android-aab
+        path: ./artifacts/android/
+        
+    - name: Download iOS artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: ios-build
+        path: ./artifacts/ios/
+        
+    - name: Create release notes
+      run: |
+        echo "# Neon Pulse Release ${{ github.event.release.tag_name }}" > release_notes.md
+        echo "" >> release_notes.md
+        echo "## What's New" >> release_notes.md
+        echo "${{ github.event.release.body }}" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "## Build Information" >> release_notes.md
+        echo "- Build Date: $(date)" >> release_notes.md
+        echo "- Flutter Version: ${{ env.FLUTTER_VERSION }}" >> release_notes.md
+        echo "- Commit: ${{ github.sha }}" >> release_notes.md
+        
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/android/app-release.aab
+          release_notes.md
+        body_path: release_notes.md
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Notification
+  notify:
+    name: Notify Team
+    runs-on: ubuntu-latest
+    needs: [build-android, build-ios]
+    if: always()
+    
+    steps:
+    - name: Notify on success
+      if: needs.build-android.result == 'success' && needs.build-ios.result == 'success'
+      run: |
+        echo "✅ Neon Pulse build completed successfully!"
+        echo "Android and iOS builds are ready for testing."
+        
+    - name: Notify on failure
+      if: needs.build-android.result == 'failure' || needs.build-ios.result == 'failure'
+      run: |
+        echo "❌ Neon Pulse build failed!"
+        echo "Please check the build logs for details."
