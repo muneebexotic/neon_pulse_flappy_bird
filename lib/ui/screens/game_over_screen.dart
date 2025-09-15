@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../game/managers/achievement_manager.dart';
+import '../theme/neon_theme.dart';
 
 /// Game over screen that displays final score, high score, and restart button
 class GameOverScreen extends StatelessWidget {
@@ -6,6 +8,8 @@ class GameOverScreen extends StatelessWidget {
   final int highScore;
   final VoidCallback onRestart;
   final VoidCallback onMainMenu;
+  final AchievementManager? achievementManager;
+  final GlobalKey? screenshotKey;
 
   const GameOverScreen({
     super.key,
@@ -13,6 +17,8 @@ class GameOverScreen extends StatelessWidget {
     required this.highScore,
     required this.onRestart,
     required this.onMainMenu,
+    this.achievementManager,
+    this.screenshotKey,
   });
 
   @override
@@ -23,8 +29,8 @@ class GameOverScreen extends StatelessWidget {
       color: Colors.black.withValues(alpha: 0.8),
       child: Center(
         child: Container(
-          margin: const EdgeInsets.all(32),
-          padding: const EdgeInsets.all(24),
+          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: const Color(0xFF0B0B1F),
             border: Border.all(
@@ -97,20 +103,44 @@ class GameOverScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   // Restart Button
-                  _buildActionButton(
-                    'RESTART',
-                    Icons.refresh,
-                    Colors.cyan,
-                    onRestart,
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: _buildActionButton(
+                        'RESTART',
+                        Icons.refresh,
+                        Colors.cyan,
+                        onRestart,
+                      ),
+                    ),
                   ),
                   
                   // Main Menu Button
-                  _buildActionButton(
-                    'MENU',
-                    Icons.home,
-                    Colors.orange,
-                    onMainMenu,
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: _buildActionButton(
+                        'MENU',
+                        Icons.home,
+                        Colors.orange,
+                        onMainMenu,
+                      ),
+                    ),
                   ),
+                  
+                  // Share Score Button (only if achievement manager is available)
+                  if (achievementManager != null)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: _buildActionButton(
+                          'SHARE',
+                          Icons.share,
+                          NeonTheme.secondaryNeon,
+                          () => _shareScore(),
+                        ),
+                      ),
+                    ),
                 ],
               ),
               
@@ -168,24 +198,51 @@ class GameOverScreen extends StatelessWidget {
     Color color,
     VoidCallback onPressed,
   ) {
-    return ElevatedButton.icon(
+    return ElevatedButton(
       onPressed: onPressed,
-      icon: Icon(icon, color: color),
-      label: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.transparent,
         side: BorderSide(color: color, width: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
+        minimumSize: const Size(0, 48),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
+
+
+
+  void _shareScore() {
+    if (achievementManager != null) {
+      final isNewHighScore = finalScore == highScore && finalScore > 0;
+      final message = isNewHighScore
+          ? 'NEW HIGH SCORE! Just scored $finalScore points in Neon Pulse! 🚀✨ Can you beat my cyberpunk bird skills? #NeonPulse #NewRecord'
+          : 'Just scored $finalScore points in Neon Pulse! 🚀✨ My high score is $highScore. Can you beat it? #NeonPulse #Gaming';
+      
+      achievementManager!.shareHighScore(
+        score: finalScore,
+        customMessage: message,
+      );
+    }
+  }
+
+
 }

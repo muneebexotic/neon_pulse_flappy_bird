@@ -408,7 +408,7 @@ class _ObstacleSpawnPredictorState extends State<ObstacleSpawnPredictor>
               Transform.scale(
                 scale: isImminent ? (1.0 + _waveAnimation.value * 0.2) : 1.0,
                 child: Icon(
-                  prediction.spawnType == 'Barrier' ? Icons.stop : Icons.platform,
+                  prediction.spawnType == 'Barrier' ? Icons.stop : Icons.view_module,
                   color: color,
                   size: 12,
                 ),

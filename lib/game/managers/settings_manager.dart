@@ -29,6 +29,16 @@ class SettingsManager {
   bool _musicEnabled = true;
   bool _sfxEnabled = true;
   bool _beatSyncEnabled = true;
+  
+  // Haptic and accessibility settings
+  bool _hapticEnabled = true;
+  bool _vibrationEnabled = true;
+  bool _highContrastMode = false;
+  bool _reducedMotion = false;
+  bool _colorBlindFriendly = false;
+  bool _soundBasedFeedback = false;
+  bool _largeText = false;
+  double _uiScale = 1.0;
 
   /// Initialize settings from shared preferences
   Future<void> initialize() async {
@@ -65,6 +75,16 @@ class SettingsManager {
     _musicEnabled = _prefs!.getBool('music_enabled') ?? true;
     _sfxEnabled = _prefs!.getBool('sfx_enabled') ?? true;
     _beatSyncEnabled = _prefs!.getBool('beat_sync_enabled') ?? true;
+    
+    // Haptic and accessibility settings
+    _hapticEnabled = _prefs!.getBool('haptic_enabled') ?? true;
+    _vibrationEnabled = _prefs!.getBool('vibration_enabled') ?? true;
+    _highContrastMode = _prefs!.getBool('high_contrast_mode') ?? false;
+    _reducedMotion = _prefs!.getBool('reduced_motion') ?? false;
+    _colorBlindFriendly = _prefs!.getBool('color_blind_friendly') ?? false;
+    _soundBasedFeedback = _prefs!.getBool('sound_based_feedback') ?? false;
+    _largeText = _prefs!.getBool('large_text') ?? false;
+    _uiScale = _prefs!.getDouble('ui_scale') ?? 1.0;
   }
 
   // Graphics Quality
@@ -143,6 +163,56 @@ class SettingsManager {
   Future<void> setBeatSyncEnabled(bool enabled) async {
     _beatSyncEnabled = enabled;
     await _prefs?.setBool('beat_sync_enabled', enabled);
+  }
+
+  // Haptic Settings
+  bool get hapticEnabled => _hapticEnabled;
+  Future<void> setHapticEnabled(bool enabled) async {
+    _hapticEnabled = enabled;
+    await _prefs?.setBool('haptic_enabled', enabled);
+  }
+
+  bool get vibrationEnabled => _vibrationEnabled;
+  Future<void> setVibrationEnabled(bool enabled) async {
+    _vibrationEnabled = enabled;
+    await _prefs?.setBool('vibration_enabled', enabled);
+  }
+
+  // Accessibility Settings
+  bool get highContrastMode => _highContrastMode;
+  Future<void> setHighContrastMode(bool enabled) async {
+    _highContrastMode = enabled;
+    await _prefs?.setBool('high_contrast_mode', enabled);
+  }
+
+  bool get reducedMotion => _reducedMotion;
+  Future<void> setReducedMotion(bool enabled) async {
+    _reducedMotion = enabled;
+    await _prefs?.setBool('reduced_motion', enabled);
+  }
+
+  bool get colorBlindFriendly => _colorBlindFriendly;
+  Future<void> setColorBlindFriendly(bool enabled) async {
+    _colorBlindFriendly = enabled;
+    await _prefs?.setBool('color_blind_friendly', enabled);
+  }
+
+  bool get soundBasedFeedback => _soundBasedFeedback;
+  Future<void> setSoundBasedFeedback(bool enabled) async {
+    _soundBasedFeedback = enabled;
+    await _prefs?.setBool('sound_based_feedback', enabled);
+  }
+
+  bool get largeText => _largeText;
+  Future<void> setLargeText(bool enabled) async {
+    _largeText = enabled;
+    await _prefs?.setBool('large_text', enabled);
+  }
+
+  double get uiScale => _uiScale;
+  Future<void> setUiScale(double scale) async {
+    _uiScale = scale.clamp(0.8, 1.5);
+    await _prefs?.setDouble('ui_scale', _uiScale);
   }
 
   /// Get recommended graphics quality based on device performance

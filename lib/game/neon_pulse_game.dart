@@ -10,9 +10,14 @@ import 'managers/audio_manager.dart';
 import 'managers/power_up_manager.dart';
 import 'managers/customization_manager.dart';
 import 'managers/settings_manager.dart';
+import 'managers/haptic_manager.dart';
+import 'managers/accessibility_manager.dart';
+import 'managers/adaptive_quality_manager.dart';
 import 'components/cyberpunk_background.dart';
 import 'effects/neon_colors.dart';
 import 'utils/performance_monitor.dart';
+import 'utils/object_pool.dart';
+import 'utils/performance_test_suite.dart';
 
 /// Main game class that extends FlameGame for the Neon Pulse Flappy Bird
 class NeonPulseGame extends FlameGame with HasCollisionDetection {
@@ -45,8 +50,11 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   // Settings system
   final SettingsManager _settingsManager = SettingsManager();
   
-  // Performance monitoring
+  // Performance monitoring and optimization
   final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
+  final AdaptiveQualityManager _adaptiveQualityManager = AdaptiveQualityManager();
+  final PoolManager _poolManager = PoolManager();
+  final PerformanceTestSuite _performanceTestSuite = PerformanceTestSuite();
   
   @override
   Color backgroundColor() => NeonColors.deepSpace;
@@ -60,7 +68,16 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   Future<void> onLoad() async {
     super.onLoad();
     
-    // Initialize settings system first
+    // Initialize performance monitoring first
+    await _performanceMonitor.initialize();
+    
+    // Initialize object pooling system
+    _poolManager.initialize();
+    
+    // Initialize adaptive quality management
+    await _adaptiveQualityManager.initialize();
+    
+    // Initialize settings system
     await _settingsManager.initialize();
     
     // Initialize audio system with settings
@@ -92,10 +109,91 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     // Set up beat synchronization
     _setupBeatSynchronization();
     
+    // Set up performance optimization callbacks
+    _setupPerformanceOptimization();
+    
+    // Start adaptive quality monitoring if enabled
+    if (_settingsManager.autoQualityAdjustment) {
+      _adaptiveQualityManager.startAdaptiveQuality();
+    }
+    
     // Mark as loaded
     hasLoaded = true;
     
     debugPrint('Neon Pulse Game initialized - World: ${worldWidth}x$worldHeight');
+    debugPrint('Performance optimization systems initialized');
+  }
+
+  /// Set up performance optimization callbacks
+  void _setupPerformanceOptimization() {
+    // Register callbacks for adaptive quality changes
+    _adaptiveQualityManager.onParticleQualityChanged((quality) {
+      final particleCount = _getParticleCountForQuality(quality);
+      bird.particleSystem.setMaxParticles(particleCount);
+      debugPrint('Adaptive quality: Particle count adjusted to $particleCount (${quality.name})');
+    });
+    
+    _adaptiveQualityManager.onGraphicsQualityChanged((quality) {
+      _applyGraphicsQualityLevel(quality);
+      debugPrint('Adaptive quality: Graphics quality adjusted to ${quality.name}');
+    });
+    
+    _adaptiveQualityManager.onEffectsChanged((reduced) {
+      _applyEffectsReduction(reduced);
+      debugPrint('Adaptive quality: Effects ${reduced ? 'reduced' : 'restored'}');
+    });
+  }
+
+  /// Get particle count for quality level
+  int _getParticleCountForQuality(QualityLevel quality) {
+    switch (quality) {
+      case QualityLevel.low:
+        return 50;
+      case QualityLevel.medium:
+        return 150;
+      case QualityLevel.high:
+        return 300;
+      case QualityLevel.ultra:
+        return 500;
+    }
+  }
+
+  /// Apply graphics quality level
+  void _applyGraphicsQualityLevel(QualityLevel quality) {
+    switch (quality) {
+      case QualityLevel.low:
+        background.setGridAnimationSpeed(0.1);
+        background.setColorShiftSpeed(0.05);
+        break;
+      case QualityLevel.medium:
+        background.setGridAnimationSpeed(0.3);
+        background.setColorShiftSpeed(0.15);
+        break;
+      case QualityLevel.high:
+        background.setGridAnimationSpeed(0.5);
+        background.setColorShiftSpeed(0.3);
+        break;
+      case QualityLevel.ultra:
+        background.setGridAnimationSpeed(0.8);
+        background.setColorShiftSpeed(0.5);
+        break;
+    }
+  }
+
+  /// Apply effects reduction
+  void _applyEffectsReduction(bool reduced) {
+    if (reduced) {
+      // Reduce particle effects
+      bird.particleSystem.setBatchRendering(true);
+      bird.particleSystem.setQuality(0.5);
+      
+      // Reduce background effects
+      background.setGridAnimationSpeed(background.getGridAnimationSpeed() * 0.5);
+    } else {
+      // Restore effects
+      bird.particleSystem.setBatchRendering(false);
+      bird.particleSystem.setQuality(1.0);
+    }
   }
 
   /// Set up game world boundaries and coordinate system
@@ -240,9 +338,6 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       newGameSpeedMultiplier: powerUpManager.gameSpeedMultiplier,
     );
     
-    // Apply power-up speed modifier to delta time (for future use)
-    // final adjustedDt = dt * gameState.gameSpeedMultiplier;
-    
     // Update obstacle manager with current difficulty and speed modifiers
     final baseDifficultyMultiplier = _settingsManager.difficultyLevel.speedMultiplier;
     final effectiveGameSpeed = gameState.gameSpeed * gameState.gameSpeedMultiplier * baseDifficultyMultiplier;
@@ -261,6 +356,14 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
       // Bird hit an obstacle - end game
       bird.isAlive = false;
       _audioManager.playSoundEffect(SoundEffect.collision);
+      
+      // Add haptic feedback for collision
+      HapticManager().heavyImpact();
+      HapticManager().collisionVibration();
+      
+      // Add accessibility sound feedback
+      AccessibilityManager().playSoundFeedback(SoundFeedbackType.dangerZone);
+      
       endGame();
       return;
     }
@@ -270,15 +373,23 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     for (final _ in passedObstacles) {
       gameState.incrementScore();
       _audioManager.playSoundEffect(SoundEffect.score);
+      
+      // Add haptic feedback for scoring
+      HapticManager().lightImpact();
+      
+      // Add accessibility sound feedback
+      AccessibilityManager().playSoundFeedback(SoundFeedbackType.scoreIncrement);
+      
+      // Check for score milestones (every 10 points)
+      if (gameState.currentScore % 10 == 0) {
+        HapticManager().scoreMilestoneVibration();
+      }
+      
       debugPrint('Score: ${gameState.currentScore} (multiplier: ${gameState.scoreMultiplier}x)');
       
       // Check for newly unlocked skins
       _checkSkinUnlocks();
     }
-    
-    // TODO: Update other game components
-    // - Particle effects
-    // - Audio synchronization
   }
 
   /// Update menu state
@@ -291,19 +402,19 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     // TODO: Update game over screen effects
   }
 
-
-
   // Input handling system for tap detection
-  // This will be implemented when we integrate with the Flutter widget
   void handleTap([Offset? position]) {
     inputHandler.processTap(position);
   }
 
   /// Handle single tap input
   void _handleSingleTap() {
+    print('NeonPulseGame: Single tap detected, current status: ${gameState.status}');
+    
     switch (gameState.status) {
       case GameStatus.menu:
         // Start game on tap in menu
+        print('NeonPulseGame: Starting game from menu...');
         startGame();
         break;
       case GameStatus.playing:
@@ -314,6 +425,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
         break;
       case GameStatus.gameOver:
         // Restart game on tap in game over screen
+        print('NeonPulseGame: Restarting game from game over...');
         startGame();
         break;
       case GameStatus.paused:
@@ -337,7 +449,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   /// Handle bird jump action
   void handleBirdJump() {
     if (bird.isAlive) {
+      print('NeonPulseGame: Bird jumping...');
       bird.jump();
+      print('NeonPulseGame: Playing jump sound effect...');
       _audioManager.playSoundEffect(SoundEffect.jump);
     }
   }
@@ -352,11 +466,12 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     }
   }
 
-
-
   /// Start a new game
   void startGame() {
+    print('NeonPulseGame: Starting new game...');
+    
     gameState.reset();
+    print('NeonPulseGame: Game state reset, status: ${gameState.status}');
     
     // Reset camera position
     gameCamera.viewfinder.position = Vector2.zero();
@@ -377,8 +492,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     background.setGridAnimationSpeed(0.5);
     background.setColorShiftSpeed(0.3);
     
-    // Start background music with beat synchronization
-    _audioManager.playBackgroundMusic('cyberpunk_theme.mp3');
+    // Start beat detection without music for now
+    _audioManager.startBeatGenerationWithoutMusic();
     
     debugPrint('Game started - Status: ${gameState.status}');
   }
@@ -388,7 +503,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     if (gameState.canPause()) {
       gameState.pauseGame();
       
-      // Pause background music
+      // Pause background music (and beat detection)
       _audioManager.stopBackgroundMusic();
       
       debugPrint('Game paused');
@@ -400,8 +515,8 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     if (gameState.canResume()) {
       gameState.resumeGame();
       
-      // Resume background music
-      _audioManager.playBackgroundMusic('cyberpunk_theme.mp3');
+      // Resume background music (currently disabled due to placeholder file)
+      _audioManager.startBeatGenerationWithoutMusic();
       
       debugPrint('Game resumed');
     }
@@ -455,6 +570,15 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   
   /// Get performance monitor for UI access
   PerformanceMonitor get performanceMonitor => _performanceMonitor;
+  
+  /// Get adaptive quality manager for UI access
+  AdaptiveQualityManager get adaptiveQualityManager => _adaptiveQualityManager;
+  
+  /// Get pool manager for UI access
+  PoolManager get poolManager => _poolManager;
+  
+  /// Get performance test suite for UI access
+  PerformanceTestSuite get performanceTestSuite => _performanceTestSuite;
   
   /// Check for newly unlocked skins based on current score
   Future<void> _checkSkinUnlocks() async {
@@ -599,6 +723,42 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
     // Apply quality settings immediately
     _applyQualitySettings();
     
+    // Update adaptive quality system
+    if (_settingsManager.autoQualityAdjustment) {
+      _adaptiveQualityManager.startAdaptiveQuality();
+    } else {
+      _adaptiveQualityManager.stopAdaptiveQuality();
+    }
+    
     debugPrint('Game settings updated');
+  }
+
+  /// Run performance benchmark
+  Future<PerformanceTestResults> runPerformanceBenchmark() async {
+    return await _performanceTestSuite.runFullTestSuite();
+  }
+
+  /// Get comprehensive performance statistics
+  Map<String, dynamic> getPerformanceStats() {
+    return {
+      'monitor': _performanceMonitor.getStats(),
+      'adaptiveQuality': _adaptiveQualityManager.getQualityStats(),
+      'objectPools': _poolManager.getAllStats(),
+      'particleSystem': bird.particleSystem.getStats(),
+    };
+  }
+
+  /// Force performance optimization cleanup
+  void forcePerformanceCleanup() {
+    // Clear all object pools
+    _poolManager.clearAll();
+    
+    // Force particle system cleanup
+    bird.particleSystem.forceCleanup();
+    
+    // Reset performance monitoring
+    _performanceMonitor.reset();
+    
+    debugPrint('Performance cleanup completed');
   }
 }

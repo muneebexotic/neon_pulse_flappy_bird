@@ -3,14 +3,27 @@ import 'package:flutter/services.dart';
 import 'package:flame/game.dart';
 import '../../game/neon_pulse_game.dart';
 import '../../models/game_state.dart';
+import '../../models/achievement.dart';
+import '../../models/bird_skin.dart';
+import '../../game/managers/achievement_manager.dart';
+import '../../game/managers/customization_manager.dart';
 import '../components/game_hud.dart';
 import '../components/pause_overlay.dart';
+import '../components/achievement_notification.dart';
 import 'game_over_screen.dart';
 import 'settings_screen.dart';
+import 'customization_screen.dart';
 
 /// Game screen that displays the actual game
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final AchievementManager? achievementManager;
+  final CustomizationManager? customizationManager;
+
+  const GameScreen({
+    super.key,
+    this.achievementManager,
+    this.customizationManager,
+  });
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -23,11 +36,44 @@ class _GameScreenState extends State<GameScreen>
   DateTime? _lastTapTime;
   static const Duration _doubleTapThreshold = Duration(milliseconds: 250);
   bool _wasPlayingBeforeBackground = false;
+  
+  // Achievement tracking
+  late AchievementManager _achievementManager;
+  late CustomizationManager _customizationManager;
+  List<Achievement> _pendingAchievements = [];
+  List<BirdSkin> _pendingSkins = [];
+  
+  // Screenshot functionality
+  final GlobalKey _screenshotKey = GlobalKey();
+  
+  // Game statistics tracking
+  int _gameStartTime = 0;
+  int _pulseUsageCount = 0;
+  int _powerUpsCollectedCount = 0;
 
   @override
   void initState() {
     super.initState();
+    
+    // Initialize managers
+    _customizationManager = widget.customizationManager ?? CustomizationManager();
+    _achievementManager = widget.achievementManager ?? AchievementManager(_customizationManager);
+    
+    // Initialize game
     game = NeonPulseGame();
+    
+    // Set up achievement callbacks
+    _achievementManager.onAchievementUnlocked = (achievement) {
+      setState(() {
+        _pendingAchievements.add(achievement);
+      });
+    };
+    
+    _achievementManager.onSkinUnlocked = (skin) {
+      setState(() {
+        _pendingSkins.add(skin);
+      });
+    };
     
     // Add observer for app lifecycle events
     WidgetsBinding.instance.addObserver(this);
@@ -40,6 +86,9 @@ class _GameScreenState extends State<GameScreen>
     
     // Start checking game state periodically (much less frequently)
     _startGameStateMonitoring();
+    
+    // Initialize achievement tracking
+    _initializeAchievementTracking();
   }
 
   @override
@@ -47,6 +96,42 @@ class _GameScreenState extends State<GameScreen>
     WidgetsBinding.instance.removeObserver(this);
     _gameStateController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeAchievementTracking() async {
+    if (!_customizationManager.availableSkins.isNotEmpty) {
+      await _customizationManager.initialize();
+    }
+    await _achievementManager.initialize();
+  }
+
+  void _trackGameStart() {
+    _gameStartTime = DateTime.now().millisecondsSinceEpoch;
+    _pulseUsageCount = 0;
+    _powerUpsCollectedCount = 0;
+  }
+
+  void _trackGameEnd() {
+    if (_gameStartTime > 0) {
+      final survivalTime = (DateTime.now().millisecondsSinceEpoch - _gameStartTime) ~/ 1000;
+      
+      // Update achievement statistics
+      _achievementManager.updateGameStatistics(
+        score: game.gameState.currentScore,
+        gamesPlayed: 1,
+        pulseUsage: _pulseUsageCount,
+        powerUpsCollected: _powerUpsCollectedCount,
+        survivalTime: survivalTime,
+      );
+    }
+  }
+
+  void _trackPulseUsage() {
+    _pulseUsageCount++;
+  }
+
+  void _trackPowerUpCollection() {
+    _powerUpsCollectedCount++;
   }
 
   @override
@@ -92,13 +177,16 @@ class _GameScreenState extends State<GameScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Game widget with improved tap handling
-          GestureDetector(
-            onTap: () {
-              _handleTap();
-            },
-            child: GameWidget<NeonPulseGame>.controlled(
-              gameFactory: () => game,
+          // Game widget with screenshot capability
+          RepaintBoundary(
+            key: _screenshotKey,
+            child: GestureDetector(
+              onTap: () {
+                _handleTap();
+              },
+              child: GameWidget<NeonPulseGame>.controlled(
+                gameFactory: () => game,
+              ),
             ),
           ),
           
@@ -164,7 +252,10 @@ class _GameScreenState extends State<GameScreen>
             GameOverScreen(
               finalScore: game.gameState.currentScore,
               highScore: game.gameState.highScore,
+              achievementManager: _achievementManager,
+              screenshotKey: _screenshotKey,
               onRestart: () {
+                _trackGameStart();
                 game.startGame();
               },
               onMainMenu: () {
@@ -221,6 +312,30 @@ class _GameScreenState extends State<GameScreen>
               ),
             ),
           
+          // Achievement notifications overlay
+          if (_pendingAchievements.isNotEmpty || _pendingSkins.isNotEmpty)
+            AchievementNotificationOverlay(
+              achievements: _pendingAchievements,
+              skins: _pendingSkins,
+              onAllDismissed: () {
+                setState(() {
+                  _pendingAchievements.clear();
+                  _pendingSkins.clear();
+                });
+                _achievementManager.clearPendingNotifications();
+              },
+              onSkinTapped: (skin) {
+                // Navigate to customization screen to equip the skin
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => CustomizationScreen(
+                      customizationManager: _customizationManager,
+                    ),
+                  ),
+                );
+              },
+            ),
+
           // Loading indicator while game is loading
           if (!game.hasLoaded)
             Container(
@@ -259,6 +374,11 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     
+    // Track game start on first tap
+    if (game.gameState.status == GameStatus.menu && _gameStartTime == 0) {
+      _trackGameStart();
+    }
+    
     // Always handle single tap immediately for responsive gameplay
     game.handleTap();
     
@@ -267,9 +387,18 @@ class _GameScreenState extends State<GameScreen>
         now.difference(_lastTapTime!) < _doubleTapThreshold) {
       // Double tap detected - activate pulse
       if (game.gameState.status == GameStatus.playing && !game.gameState.isPaused) {
-        game.pulseManager.tryActivatePulse();
-        debugPrint('Double tap detected - pulse activated');
+        final pulseActivated = game.pulseManager.tryActivatePulse();
+        if (pulseActivated) {
+          _trackPulseUsage();
+          debugPrint('Double tap detected - pulse activated');
+        }
       }
+    }
+    
+    // Track game end when game over
+    if (game.gameState.status == GameStatus.gameOver && _gameStartTime > 0) {
+      _trackGameEnd();
+      _gameStartTime = 0; // Reset for next game
     }
     
     _lastTapTime = now;

@@ -227,6 +227,11 @@ class CyberpunkBackground extends Component {
     colorShiftSpeed = speed;
   }
   
+  /// Get current grid animation speed
+  double getGridAnimationSpeed() {
+    return gridAnimationSpeed;
+  }
+  
   /// Get current animation time for synchronization
   double get currentAnimationTime => animationTime;
 }

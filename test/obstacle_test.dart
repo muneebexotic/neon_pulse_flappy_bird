@@ -112,7 +112,7 @@ void main() {
         );
         
         // Position bird in the actual gap area (between top and bottom barriers)
-        final gapY = barrier.topBarrierHeight + (DigitalBarrier.gapHeight / 2);
+        final gapY = barrier.topBarrierHeight + (barrier.gapHeight / 2);
         testBird.position = Vector2(120, gapY); // Should be in gap
         
         expect(barrier.checkCollision(testBird), isFalse);
@@ -216,7 +216,7 @@ void main() {
         expect(barrier.checkCollision(testBird), isFalse);
         
         // Test bird in gap area - should not collide
-        final gapY = barrier.topBarrierHeight + (DigitalBarrier.gapHeight / 2);
+        final gapY = barrier.topBarrierHeight + (barrier.gapHeight / 2);
         testBird.position = Vector2(120, gapY); // In actual gap area
         expect(barrier.checkCollision(testBird), isFalse);
       });

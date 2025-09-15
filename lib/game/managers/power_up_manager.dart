@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import '../components/power_up.dart';
 import '../components/bird.dart';
 import '../managers/obstacle_manager.dart';
+import '../managers/haptic_manager.dart';
+import '../managers/accessibility_manager.dart';
 import '../../models/game_state.dart';
 import '../neon_pulse_game.dart';
 
@@ -187,6 +189,13 @@ class PowerUpManager extends Component {
   void _activatePowerUp(PowerUp powerUp) {
     // Track collection
     totalPowerUpsCollected++;
+    
+    // Add haptic feedback for power-up collection
+    HapticManager().mediumImpact();
+    HapticManager().powerUpVibration();
+    
+    // Add accessibility sound feedback
+    AccessibilityManager().playSoundFeedback(SoundFeedbackType.powerUpAvailable);
     
     final effect = ActivePowerUpEffect(
       type: powerUp.type,

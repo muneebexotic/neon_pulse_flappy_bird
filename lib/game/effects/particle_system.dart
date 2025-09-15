@@ -129,12 +129,14 @@ class NeonParticle {
   }
 }
 
-/// Particle pool for performance optimization
+/// Enhanced particle pool with better memory management
 class ParticlePool {
   final List<NeonParticle> _availableParticles = [];
-  final int maxPoolSize;
+  final Set<NeonParticle> _activeParticles = <NeonParticle>{};
+  int maxPoolSize;
+  int _totalCreated = 0;
 
-  ParticlePool({this.maxPoolSize = 100});
+  ParticlePool({this.maxPoolSize = 200});
 
   /// Get a particle from the pool or create a new one
   NeonParticle getParticle({
@@ -168,38 +170,96 @@ class ParticlePool {
         size: size,
         type: type,
       );
+      _totalCreated++;
     }
     
+    _activeParticles.add(particle);
     return particle;
   }
 
   /// Return a particle to the pool
   void returnParticle(NeonParticle particle) {
-    if (_availableParticles.length < maxPoolSize) {
-      _availableParticles.add(particle);
+    if (_activeParticles.remove(particle)) {
+      if (_availableParticles.length < maxPoolSize) {
+        _availableParticles.add(particle);
+      }
+    }
+  }
+
+  /// Adjust pool size dynamically
+  void adjustPoolSize(int newSize) {
+    maxPoolSize = newSize;
+    
+    // If new size is smaller, remove excess particles
+    while (_availableParticles.length > maxPoolSize) {
+      _availableParticles.removeLast();
     }
   }
 
   /// Get current pool statistics
   int get availableCount => _availableParticles.length;
-  int get usedCount => maxPoolSize - _availableParticles.length;
+  int get activeCount => _activeParticles.length;
+  int get totalCreated => _totalCreated;
+  double get utilization => activeCount / maxPoolSize;
+  
+  /// Check if pool is under pressure
+  bool get isUnderPressure => utilization > 0.9;
+  
+  /// Clear all particles
+  void clear() {
+    _availableParticles.clear();
+    _activeParticles.clear();
+  }
 }
 
-/// Main particle system component
+/// Main particle system component with adaptive quality
 class ParticleSystem extends Component {
   final List<NeonParticle> _activeParticles = [];
-  final ParticlePool _particlePool = ParticlePool(maxPoolSize: 200);
+  final ParticlePool _particlePool = ParticlePool(maxPoolSize: 300);
   
-  // Performance settings - reduced for better performance
-  int maxParticles = 50;
+  // Performance settings with adaptive quality
+  int maxParticles = 150;
   bool qualityAdjustment = true;
-  double currentQuality = 0.7;
+  double currentQuality = 1.0;
+  
+  // Batch rendering optimization
+  final List<NeonParticle> _batchedParticles = [];
+  bool _enableBatching = true;
+  
+  // Performance monitoring
+  int _framesSinceLastCleanup = 0;
+  static const int _cleanupInterval = 300; // Clean up every 5 seconds at 60fps
+  
+  // Quality levels
+  static const Map<String, int> _qualityParticleCounts = {
+    'low': 50,
+    'medium': 150,
+    'high': 300,
+    'ultra': 500,
+  };
 
   @override
   void update(double dt) {
     super.update(dt);
     
-    // Update all active particles
+    // Update all active particles with optimized loop
+    _updateParticles(dt);
+    
+    // Periodic cleanup and optimization
+    _framesSinceLastCleanup++;
+    if (_framesSinceLastCleanup >= _cleanupInterval) {
+      _performCleanup();
+      _framesSinceLastCleanup = 0;
+    }
+    
+    // Adjust quality based on performance if enabled
+    if (qualityAdjustment) {
+      _adjustQuality();
+    }
+  }
+
+  /// Optimized particle update loop
+  void _updateParticles(double dt) {
     for (int i = _activeParticles.length - 1; i >= 0; i--) {
       final particle = _activeParticles[i];
       particle.update(dt);
@@ -210,10 +270,22 @@ class ParticleSystem extends Component {
         _particlePool.returnParticle(particle);
       }
     }
+  }
+
+  /// Perform periodic cleanup and optimization
+  void _performCleanup() {
+    // Remove particles that are barely visible to free up resources
+    for (int i = _activeParticles.length - 1; i >= 0; i--) {
+      final particle = _activeParticles[i];
+      if (particle.alpha < 0.05 || particle.size < 0.5) {
+        _activeParticles.removeAt(i);
+        _particlePool.returnParticle(particle);
+      }
+    }
     
-    // Adjust quality based on performance if enabled
-    if (qualityAdjustment) {
-      _adjustQuality();
+    // Adjust pool size if needed
+    if (_particlePool.isUnderPressure) {
+      _reduceParticleCount();
     }
   }
 
@@ -221,9 +293,64 @@ class ParticleSystem extends Component {
   void render(Canvas canvas) {
     super.render(canvas);
     
-    // Render all active particles
+    if (_enableBatching && _activeParticles.length > 10) {
+      _renderBatched(canvas);
+    } else {
+      _renderIndividual(canvas);
+    }
+  }
+
+  /// Render particles individually (for small counts)
+  void _renderIndividual(Canvas canvas) {
     for (final particle in _activeParticles) {
       particle.render(canvas);
+    }
+  }
+
+  /// Render particles in batches for better performance
+  void _renderBatched(Canvas canvas) {
+    // Group particles by similar properties for batch rendering
+    final Map<String, List<NeonParticle>> batches = {};
+    
+    for (final particle in _activeParticles) {
+      final key = '${particle.color.value}_${particle.size.round()}';
+      batches.putIfAbsent(key, () => []).add(particle);
+    }
+    
+    // Render each batch
+    for (final batch in batches.values) {
+      if (batch.isNotEmpty) {
+        _renderParticleBatch(canvas, batch);
+      }
+    }
+  }
+
+  /// Render a batch of similar particles
+  void _renderParticleBatch(Canvas canvas, List<NeonParticle> particles) {
+    if (particles.isEmpty) return;
+    
+    final firstParticle = particles.first;
+    final paint = Paint()
+      ..color = firstParticle.color
+      ..style = PaintingStyle.fill;
+    
+    final glowPaint = Paint()
+      ..color = firstParticle.color.withOpacity(0.3)
+      ..style = PaintingStyle.fill
+      ..maskFilter = MaskFilter.blur(BlurStyle.outer, firstParticle.size * 2);
+    
+    // Draw all particles in the batch
+    for (final particle in particles) {
+      if (!particle.isAlive) continue;
+      
+      final adjustedPaint = paint..color = particle.color.withOpacity(particle.alpha);
+      final adjustedGlowPaint = glowPaint..color = particle.color.withOpacity(particle.alpha * 0.3);
+      
+      // Draw glow
+      canvas.drawCircle(Offset(particle.position.x, particle.position.y), particle.size * 2, adjustedGlowPaint);
+      
+      // Draw core particle
+      canvas.drawCircle(Offset(particle.position.x, particle.position.y), particle.size, adjustedPaint);
     }
   }
 
@@ -312,16 +439,44 @@ class ParticleSystem extends Component {
     }
   }
 
-  /// Adjust quality based on performance
+  /// Adjust quality based on performance with enhanced logic
   void _adjustQuality() {
     final particleRatio = _activeParticles.length / maxParticles;
+    final poolPressure = _particlePool.utilization;
     
-    if (particleRatio > 0.9) {
-      // High particle count, reduce quality
+    // More aggressive quality reduction under pressure
+    if (particleRatio > 0.95 || poolPressure > 0.9) {
+      currentQuality = math.max(0.2, currentQuality - 0.02);
+      _reduceParticleCount();
+    } else if (particleRatio > 0.8 || poolPressure > 0.7) {
       currentQuality = math.max(0.3, currentQuality - 0.01);
-    } else if (particleRatio < 0.5) {
-      // Low particle count, can increase quality
+    } else if (particleRatio < 0.4 && poolPressure < 0.5) {
+      // Can increase quality when performance is good
       currentQuality = math.min(1.0, currentQuality + 0.005);
+    }
+    
+    // Adjust batching based on particle count
+    _enableBatching = _activeParticles.length > 20;
+  }
+
+  /// Reduce particle count when under pressure
+  void _reduceParticleCount() {
+    final targetReduction = (_activeParticles.length * 0.2).round();
+    
+    // Remove oldest/weakest particles first
+    final particlesToRemove = <int>[];
+    for (int i = 0; i < _activeParticles.length && particlesToRemove.length < targetReduction; i++) {
+      final particle = _activeParticles[i];
+      if (particle.alpha < 0.3 || particle.life < particle.maxLife * 0.2) {
+        particlesToRemove.add(i);
+      }
+    }
+    
+    // Remove particles in reverse order to maintain indices
+    for (int i = particlesToRemove.length - 1; i >= 0; i--) {
+      final index = particlesToRemove[i];
+      final particle = _activeParticles.removeAt(index);
+      _particlePool.returnParticle(particle);
     }
   }
 
@@ -336,13 +491,26 @@ class ParticleSystem extends Component {
   /// Set quality level manually (0.0 to 1.0)
   void setQuality(double quality) {
     currentQuality = quality.clamp(0.0, 1.0);
-    maxParticles = (50 * currentQuality).round().clamp(10, 50);
+    maxParticles = (300 * currentQuality).round().clamp(20, 500);
+    _particlePool.adjustPoolSize((maxParticles * 1.5).round());
   }
   
   /// Set maximum particle count directly
   void setMaxParticles(int count) {
-    maxParticles = count.clamp(10, 500);
-    currentQuality = maxParticles / 50.0; // Update quality to match
+    maxParticles = count.clamp(20, 500);
+    currentQuality = maxParticles / 300.0; // Update quality to match
+    _particlePool.adjustPoolSize((maxParticles * 1.5).round());
+  }
+
+  /// Set quality by name (low, medium, high, ultra)
+  void setQualityByName(String qualityName) {
+    final particleCount = _qualityParticleCounts[qualityName.toLowerCase()] ?? 150;
+    setMaxParticles(particleCount);
+  }
+
+  /// Enable or disable batch rendering
+  void setBatchRendering(bool enabled) {
+    _enableBatching = enabled;
   }
 
   /// Add a custom particle (for skin trail effects)
@@ -362,15 +530,34 @@ class ParticleSystem extends Component {
     _activeParticles.add(neonParticle);
   }
 
-  /// Get current particle statistics
+  /// Get comprehensive particle statistics
   Map<String, dynamic> getStats() {
     return {
       'activeParticles': _activeParticles.length,
       'maxParticles': maxParticles,
       'poolAvailable': _particlePool.availableCount,
-      'poolUsed': _particlePool.usedCount,
-      'currentQuality': currentQuality,
+      'poolActive': _particlePool.activeCount,
+      'poolTotal': _particlePool.totalCreated,
+      'poolUtilization': (_particlePool.utilization * 100).toStringAsFixed(1) + '%',
+      'currentQuality': (currentQuality * 100).toStringAsFixed(1) + '%',
+      'batchRenderingEnabled': _enableBatching,
+      'framesSinceCleanup': _framesSinceLastCleanup,
+      'isUnderPressure': _particlePool.isUnderPressure,
     };
+  }
+
+  /// Get memory usage estimate in KB
+  double getMemoryUsageKB() {
+    final activeMemory = _activeParticles.length * 0.1; // ~100 bytes per particle
+    final poolMemory = _particlePool.availableCount * 0.1;
+    return activeMemory + poolMemory;
+  }
+
+  /// Force cleanup of all particles
+  void forceCleanup() {
+    clearAllParticles();
+    _particlePool.clear();
+    _framesSinceLastCleanup = 0;
   }
 }
 

@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import '../components/pulse_effect.dart';
 import '../components/bird.dart';
 import '../managers/obstacle_manager.dart';
+import '../managers/haptic_manager.dart';
+import '../managers/accessibility_manager.dart';
 import '../effects/neon_colors.dart';
 import '../neon_pulse_game.dart';
 
@@ -84,6 +86,13 @@ class PulseManager extends Component {
     isPulseReady = false;
     isPulseActive = true;
     cooldownTimer = pulseCooldownDuration;
+    
+    // Add haptic feedback for pulse activation
+    HapticManager().mediumImpact();
+    HapticManager().pulseActivation();
+    
+    // Add accessibility sound feedback
+    AccessibilityManager().playSoundFeedback(SoundFeedbackType.pulseReady);
     
     // Track pulse usage
     totalPulseUsage++;

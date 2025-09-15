@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'customization_screen.dart';
+import 'achievements_screen.dart';
 import '../../game/managers/customization_manager.dart';
+import '../../game/managers/achievement_manager.dart';
+import '../../game/managers/audio_manager.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -13,22 +16,27 @@ class MainMenuScreen extends StatefulWidget {
 
 class _MainMenuScreenState extends State<MainMenuScreen> {
   final CustomizationManager _customizationManager = CustomizationManager();
+  late final AchievementManager _achievementManager;
   bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    _achievementManager = AchievementManager(_customizationManager);
     _initializeCustomization();
   }
 
   Future<void> _initializeCustomization() async {
     await _customizationManager.initialize();
+    await _achievementManager.initialize();
     if (mounted) {
       setState(() {
         _isInitialized = true;
       });
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -78,13 +86,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 _buildMenuButton(
                   context,
                   'PLAY',
-                  () {
+                  _isInitialized ? () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const GameScreen(),
+                        builder: (context) => GameScreen(
+                          achievementManager: _achievementManager,
+                          customizationManager: _customizationManager,
+                        ),
                       ),
                     );
-                  },
+                  } : null,
                 ),
                 const SizedBox(height: 20),
                 _buildMenuButton(
@@ -103,6 +114,20 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 const SizedBox(height: 20),
                 _buildMenuButton(
                   context,
+                  'ACHIEVEMENTS',
+                  _isInitialized ? () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => AchievementsScreen(
+                          achievementManager: _achievementManager,
+                        ),
+                      ),
+                    );
+                  } : null,
+                ),
+                const SizedBox(height: 20),
+                _buildMenuButton(
+                  context,
                   'SETTINGS',
                   () {
                     Navigator.of(context).push(
@@ -112,6 +137,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     );
                   },
                 ),
+
               ],
             ),
           ),

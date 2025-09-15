@@ -4,9 +4,12 @@ import '../components/graphics_settings.dart';
 import '../components/difficulty_settings.dart';
 import '../components/control_settings.dart';
 import '../components/performance_settings.dart';
+import '../components/accessibility_settings.dart';
 import '../theme/neon_theme.dart';
 import '../../game/managers/audio_manager.dart';
 import '../../game/managers/settings_manager.dart';
+import '../../game/managers/accessibility_manager.dart';
+import '../../game/managers/haptic_manager.dart';
 import '../../game/utils/performance_monitor.dart';
 
 /// Enhanced settings screen with comprehensive game settings
@@ -14,6 +17,8 @@ class SettingsScreen extends StatefulWidget {
   final AudioManager? audioManager;
   final SettingsManager? settingsManager;
   final PerformanceMonitor? performanceMonitor;
+  final AccessibilityManager? accessibilityManager;
+  final HapticManager? hapticManager;
   final VoidCallback? onSettingsChanged;
   
   const SettingsScreen({
@@ -21,6 +26,8 @@ class SettingsScreen extends StatefulWidget {
     this.audioManager,
     this.settingsManager,
     this.performanceMonitor,
+    this.accessibilityManager,
+    this.hapticManager,
     this.onSettingsChanged,
   });
 
@@ -32,17 +39,27 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
   late TabController _tabController;
   late SettingsManager _settingsManager;
   late PerformanceMonitor _performanceMonitor;
+  late AccessibilityManager _accessibilityManager;
+  late HapticManager _hapticManager;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _settingsManager = widget.settingsManager ?? SettingsManager();
     _performanceMonitor = widget.performanceMonitor ?? PerformanceMonitor();
+    _accessibilityManager = widget.accessibilityManager ?? AccessibilityManager();
+    _hapticManager = widget.hapticManager ?? HapticManager();
     
-    // Initialize settings manager if not provided
+    // Initialize managers if not provided
     if (widget.settingsManager == null) {
       _settingsManager.initialize();
+    }
+    if (widget.accessibilityManager == null) {
+      _accessibilityManager.initialize(audioManager: widget.audioManager);
+    }
+    if (widget.hapticManager == null) {
+      _hapticManager.initialize();
     }
   }
 
@@ -84,6 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                     _buildGameplayTab(),
                     _buildControlsTab(),
                     _buildAudioTab(),
+                    _buildAccessibilityTab(),
                     _buildPerformanceTab(),
                   ],
                 ),
@@ -162,6 +180,10 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
           Tab(
             icon: Icon(Icons.volume_up, size: 20),
             text: 'Audio',
+          ),
+          Tab(
+            icon: Icon(Icons.accessibility, size: 20),
+            text: 'Accessibility',
           ),
           Tab(
             icon: Icon(Icons.speed, size: 20),
@@ -247,6 +269,27 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
       child: widget.audioManager != null
           ? AudioSettings(audioManager: widget.audioManager!)
           : _buildAudioUnavailable(),
+    );
+  }
+
+  Widget _buildAccessibilityTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: AccessibilitySettings(
+        accessibilityManager: _accessibilityManager,
+        hapticManager: _hapticManager,
+        settingsManager: _settingsManager,
+        onSettingsChanged: () {
+          widget.onSettingsChanged?.call();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Accessibility settings updated'),
+              backgroundColor: NeonTheme.neonGreen,
+            ),
+          );
+        },
+      ),
     );
   }
 

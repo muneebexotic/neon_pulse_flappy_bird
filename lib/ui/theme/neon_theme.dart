@@ -20,11 +20,15 @@ class NeonTheme {
   // Theme colors for UI components
   static const Color primaryNeon = electricBlue;
   static const Color secondaryNeon = hotPink;
+  static const Color accentNeon = neonGreen;
   static const Color successNeon = neonGreen;
   static const Color warningNeon = warningOrange;
   static const Color backgroundColor = deepSpace;
+  static const Color cardBackground = charcoal;
   static const Color cardColor = charcoal;
   static const Color textColor = white;
+  static const Color textPrimary = white;
+  static const Color textSecondary = Color(0xFFB0B0B0);
   
   // Text styles
   static const TextStyle headingStyle = TextStyle(

@@ -86,22 +86,48 @@ class AudioManager {
     for (final sound in soundFiles) {
       _cachedSounds[sound] = 'audio/sfx/$sound';
     }
+    
+    print('AudioManager: Preloaded ${soundFiles.length} sound effect paths');
+    print('AudioManager: Note - Some files may be placeholders and will fail to play');
   }
 
   /// Start playing background music with beat detection
   Future<void> playBackgroundMusic(String musicFile) async {
-    if (!_isMusicEnabled) return;
+    print('AudioManager: Attempting to play background music: $musicFile');
+    print('AudioManager: Music enabled: $_isMusicEnabled, Volume: $_musicVolume');
+    
+    if (!_isMusicEnabled) {
+      print('AudioManager: Music is disabled, skipping playback');
+      return;
+    }
     
     try {
+      print('AudioManager: Setting volume to $_musicVolume');
       await _musicPlayer.setVolume(_musicVolume);
-      await _musicPlayer.play(AssetSource('audio/music/$musicFile'));
+      
+      final assetPath = 'audio/music/$musicFile';
+      print('AudioManager: Playing asset: $assetPath');
+      
+      // Try to play the audio with explicit source
+      final source = AssetSource(assetPath);
+      print('AudioManager: Created AssetSource: $source');
+      
+      await _musicPlayer.play(source);
+      
+      print('AudioManager: Music playback started successfully');
       
       if (_beatDetectionEnabled) {
+        print('AudioManager: Starting beat detection');
         _startBeatDetection();
+      } else {
+        print('AudioManager: Beat detection is disabled');
       }
     } catch (e) {
-      print('Error playing background music: $e');
-      _fallbackBeatGeneration();
+      print('AudioManager: Error playing background music: $e');
+      print('AudioManager: This is likely because the audio file is missing or invalid');
+      print('AudioManager: The game will continue with sound effects only');
+      print('AudioManager: See AUDIO_SETUP.md for instructions on adding music files');
+      startBeatGenerationWithoutMusic();
     }
   }
 
@@ -113,16 +139,28 @@ class AudioManager {
 
   /// Play a sound effect
   Future<void> playSoundEffect(SoundEffect effect) async {
-    if (!_isSfxEnabled) return;
+    print('AudioManager: Attempting to play sound effect: $effect');
+    
+    if (!_isSfxEnabled) {
+      print('AudioManager: SFX is disabled, skipping playback');
+      return;
+    }
     
     final soundFile = _getSoundFile(effect);
     if (soundFile != null) {
       try {
         await _sfxPlayer.setVolume(_sfxVolume);
         await _sfxPlayer.play(AssetSource(soundFile));
+        print('AudioManager: SFX $effect played successfully');
       } catch (e) {
-        print('Error playing sound effect: $e');
+        print('AudioManager: Error playing sound effect $effect: ${e.toString()}');
+        if (e.toString().contains('asset does not exist') || e.toString().contains('empty data')) {
+          print('AudioManager: Sound file $soundFile appears to be missing or invalid (likely a placeholder)');
+        }
+        // Continue silently - don't spam the console with stack traces for missing audio
       }
+    } else {
+      print('AudioManager: Sound file not found for effect: $effect');
     }
   }
 
@@ -136,7 +174,8 @@ class AudioManager {
       case SoundEffect.pulse:
         return _cachedSounds['pulse.wav'];
       case SoundEffect.score:
-        return _cachedSounds['score.wav'];
+        // Fallback: use pulse sound for score if score.wav is missing
+        return _cachedSounds['score.wav'] ?? _cachedSounds['pulse.wav'];
       case SoundEffect.powerUp:
         return _cachedSounds['power_up.wav'];
     }
@@ -180,11 +219,17 @@ class AudioManager {
   }
 
   /// Fallback beat generation when audio analysis fails
-  void _fallbackBeatGeneration() {
-    if (!_beatDetectionEnabled) return;
+  void startBeatGenerationWithoutMusic() {
+    print('AudioManager: Starting fallback beat generation');
+    
+    if (!_beatDetectionEnabled) {
+      print('AudioManager: Beat detection is disabled, skipping fallback');
+      return;
+    }
     
     // Use predetermined BPM for consistent gameplay
     _currentBpm = 128.0;
+    print('AudioManager: Using fallback BPM: $_currentBpm');
     _startBeatDetection();
   }
 
@@ -227,6 +272,9 @@ class AudioManager {
     await _saveSettings();
   }
 
+  /// Check if background music is currently playing
+  bool get isMusicPlaying => _musicPlayer.state == PlayerState.playing;
+  
   /// Get the next predicted beat time
   DateTime? getNextBeatTime() {
     if (_lastBeatTime == null) return null;
@@ -244,6 +292,20 @@ class AudioManager {
     final timeToBeat = nextBeat.difference(now);
     
     return timeToBeat.abs() <= timeWindow;
+  }
+
+  /// Play a beep sound for accessibility feedback
+  Future<void> playBeep({required double frequency, required int duration}) async {
+    if (!_isSfxEnabled) return;
+    
+    try {
+      // Generate a simple beep tone
+      // Note: This is a simplified implementation
+      // In a real app, you might want to use a tone generator or pre-recorded beep sounds
+      await _sfxPlayer.play(AssetSource('audio/beep.wav'), volume: _sfxVolume * 0.5);
+    } catch (e) {
+      print('AudioManager: Failed to play beep: $e');
+    }
   }
 
   /// Dispose of resources

@@ -6,6 +6,8 @@ import '../effects/neon_colors.dart';
 import '../effects/skin_trail_effects.dart';
 import '../../models/bird_skin.dart';
 import '../neon_pulse_game.dart';
+import '../managers/haptic_manager.dart';
+import '../managers/accessibility_manager.dart';
 
 /// Bird component that handles player-controlled bird with physics
 class Bird extends PositionComponent {
@@ -117,6 +119,12 @@ class Bird extends PositionComponent {
     if (!isAlive) return;
     
     velocity.y = jumpForce;
+    
+    // Add haptic feedback for jump
+    HapticManager().lightImpact();
+    
+    // Add accessibility sound feedback
+    AccessibilityManager().playSoundFeedback(SoundFeedbackType.scoreIncrement);
     
     // Add jump particle effect if particle system is available
     if (hasLoaded && children.contains(particleSystem)) {
