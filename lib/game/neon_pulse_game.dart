@@ -65,64 +65,68 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   }
 
   @override
-  Future<void> onLoad() async {
-    super.onLoad();
-    
-    // Initialize performance monitoring first
-    await _performanceMonitor.initialize();
-    
-    // Initialize object pooling system
-    _poolManager.initialize();
-    
-    // Initialize adaptive quality management
-    await _adaptiveQualityManager.initialize();
-    
-    // Initialize settings system
-    await _settingsManager.initialize();
-    
-    // Initialize audio system with settings
-    await _audioManager.initialize();
-    _audioManager.setMusicVolume(_settingsManager.musicVolume);
-    _audioManager.setSfxVolume(_settingsManager.sfxVolume);
-    if (!_settingsManager.musicEnabled) await _audioManager.toggleMusic();
-    if (!_settingsManager.sfxEnabled) await _audioManager.toggleSfx();
-    if (!_settingsManager.beatSyncEnabled) await _audioManager.toggleBeatDetection();
-    
-    // Initialize customization system
-    await _customizationManager.initialize();
-    
-    // Load high score from local storage
-    await gameState.loadHighScore();
-    
-    // Set up game world boundaries and coordinate system
-    _setupWorldBoundaries();
-    
-    // Initialize camera system
-    _setupCamera();
-    
-    // Initialize input handling system
-    _setupInputHandler();
-    
-    // Initialize game components
-    _setupGameComponents();
-    
-    // Set up beat synchronization
-    _setupBeatSynchronization();
-    
-    // Set up performance optimization callbacks
-    _setupPerformanceOptimization();
-    
-    // Start adaptive quality monitoring if enabled
-    if (_settingsManager.autoQualityAdjustment) {
-      _adaptiveQualityManager.startAdaptiveQuality();
-    }
-    
-    // Mark as loaded
-    hasLoaded = true;
-    
-    debugPrint('Neon Pulse Game initialized - World: ${worldWidth}x$worldHeight');
-    debugPrint('Performance optimization systems initialized');
+  @override
+Future<void> onLoad() async {
+  super.onLoad();
+  
+  // Initialize performance monitoring first
+  await _performanceMonitor.initialize();
+  
+  // Initialize object pooling system
+  _poolManager.initialize();
+  
+  // Initialize adaptive quality management
+  await _adaptiveQualityManager.initialize();
+  
+  // Initialize settings system
+  await _settingsManager.initialize();
+  
+  // Initialize audio system with settings
+  await _audioManager.initialize();
+  _audioManager.setMusicVolume(_settingsManager.musicVolume);
+  _audioManager.setSfxVolume(_settingsManager.sfxVolume);
+  if (!_settingsManager.musicEnabled) await _audioManager.toggleMusic();
+  if (!_settingsManager.sfxEnabled) await _audioManager.toggleSfx();
+  if (!_settingsManager.beatSyncEnabled) await _audioManager.toggleBeatDetection();
+  
+  // Initialize customization system
+  await _customizationManager.initialize();
+  
+  // Load high score from local storage
+  await gameState.loadHighScore();
+  
+  // Set up game world boundaries and coordinate system
+  _setupWorldBoundaries();
+  
+  // Initialize camera system
+  _setupCamera();
+  
+  // Initialize input handling system
+  _setupInputHandler();
+  
+  // Initialize game components
+  _setupGameComponents();
+  
+  // Set up beat synchronization
+  _setupBeatSynchronization();
+  
+  // Set up performance optimization callbacks
+  _setupPerformanceOptimization();
+  
+  // Start adaptive quality monitoring if enabled
+  if (_settingsManager.autoQualityAdjustment) {
+    _adaptiveQualityManager.startAdaptiveQuality();
   }
+  
+  // Mark as loaded
+  hasLoaded = true;
+  
+  debugPrint('Neon Pulse Game initialized - World: ${worldWidth}x$worldHeight');
+  debugPrint('Performance optimization systems initialized');
+  
+  // Auto-start the game after loading (fix for initial start from main menu)
+  startGame();
+}
 
   /// Set up performance optimization callbacks
   void _setupPerformanceOptimization() {
