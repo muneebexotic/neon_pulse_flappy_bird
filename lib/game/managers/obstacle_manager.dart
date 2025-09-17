@@ -14,9 +14,9 @@ import '../neon_pulse_game.dart';
 class ObstacleManager extends Component {
   // Obstacle spawning properties - increased for better performance
   static const double spawnInterval =
-      3.5; // seconds between obstacles (increased)
+      2.0; // seconds between obstacles (increased)
   static const double spawnDistance =
-      400.0; // distance from right edge to spawn
+      700.0; // distance from right edge to spawn
   double spawnTimer = 0.0;
 
   // World properties
@@ -33,7 +33,7 @@ class ObstacleManager extends Component {
   DifficultyLevel? settingsDifficultyLevel;
 
   // Beat synchronization
-  bool beatSyncEnabled = true;
+  bool beatSyncEnabled = false;
   double lastBeatTime = 0.0;
   double currentBpm = 128.0;
   bool waitingForBeat = false;
@@ -61,7 +61,7 @@ class ObstacleManager extends Component {
     }
 
     // Update all obstacles
-    _updateObstacles(dt);
+    _updateObstacles(dt * currentGameSpeed);
 
     // Remove off-screen obstacles
     _removeOffScreenObstacles();

@@ -12,9 +12,9 @@ class DifficultyManager {
   static const double maxGameSpeed = 2.0; // Maximum 2x speed
   
   // Obstacle spawning settings
-  static const double baseSpawnInterval = 3.5;
+  static const double baseSpawnInterval = 2.0;
   static const double minSpawnInterval = 1.5; // Minimum time between obstacles
-  static const double spawnIntervalReduction = 0.1; // Reduction per level
+  static const double spawnIntervalReduction = 0.2; // Reduction per level
   
   // Multiple obstacle settings
   static const int multiObstacleStartLevel = 5; // Start spawning multiple obstacles at level 5
