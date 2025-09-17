@@ -50,14 +50,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObse
         AudioManager().stopBackgroundMusic();
         break;
       case AppLifecycleState.resumed:
-        // Restart background music when returning to foreground
+        // Restart background music when returning to foreground (only if music is enabled)
         if (_isInitialized) {
           try {
-            AudioManager().playBackgroundMusic(
-              'cyberpunk_theme.mp3',
-              fadeIn: true,
-              fadeDuration: AnimationConfig.slow,
-            );
+            final audioManager = AudioManager();
+            // Only restart music if it's enabled and not already playing
+            if (audioManager.isMusicEnabled && !audioManager.isMusicPlaying) {
+              audioManager.playBackgroundMusic(
+                'cyberpunk_theme.mp3',
+                fadeIn: true,
+                fadeDuration: AnimationConfig.slow,
+              );
+            }
           } catch (e) {
             print('Failed to restart background music: $e');
           }
@@ -74,15 +78,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObse
     await _customizationManager.initialize();
     await _achievementManager.initialize();
     
-    // Start background music with fade-in only if not already playing
+    // Start background music with fade-in only if music is enabled and not already playing
     try {
       final audioManager = AudioManager();
-      if (!audioManager.isMusicPlaying) {
+      if (audioManager.isMusicEnabled && !audioManager.isMusicPlaying) {
         await audioManager.playBackgroundMusic(
           'cyberpunk_theme.mp3',
           fadeIn: true,
           fadeDuration: AnimationConfig.slow,
         );
+      } else if (!audioManager.isMusicEnabled) {
+        print('Background music is disabled in settings, not starting');
       } else {
         print('Background music is already playing, not restarting');
       }

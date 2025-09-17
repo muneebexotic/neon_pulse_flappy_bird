@@ -83,11 +83,14 @@ Future<void> onLoad() async {
   
   // Initialize audio system with settings
   await _audioManager.initialize();
-  _audioManager.setMusicVolume(_settingsManager.musicVolume);
-  _audioManager.setSfxVolume(_settingsManager.sfxVolume);
-  if (!_settingsManager.musicEnabled) await _audioManager.toggleMusic();
-  if (!_settingsManager.sfxEnabled) await _audioManager.toggleSfx();
-  if (!_settingsManager.beatSyncEnabled) await _audioManager.toggleBeatDetection();
+  
+  // Synchronize audio settings - AudioManager is the source of truth for audio
+  // Update SettingsManager to match AudioManager's loaded values
+  await _settingsManager.setMusicEnabled(_audioManager.isMusicEnabled);
+  await _settingsManager.setSfxEnabled(_audioManager.isSfxEnabled);
+  await _settingsManager.setBeatSyncEnabled(_audioManager.beatDetectionEnabled);
+  await _settingsManager.setMusicVolume(_audioManager.musicVolume);
+  await _settingsManager.setSfxVolume(_audioManager.sfxVolume);
   
   // Test audio system to diagnose any issues
   await _audioManager.testAudioSystem();

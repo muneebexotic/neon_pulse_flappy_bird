@@ -267,7 +267,27 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: widget.audioManager != null
-          ? AudioSettings(audioManager: widget.audioManager!)
+          ? AudioSettings(
+              audioManager: widget.audioManager!,
+              onSettingsChanged: () async {
+                // Synchronize SettingsManager with AudioManager when audio settings change
+                await _settingsManager.setMusicEnabled(widget.audioManager!.isMusicEnabled);
+                await _settingsManager.setSfxEnabled(widget.audioManager!.isSfxEnabled);
+                await _settingsManager.setBeatSyncEnabled(widget.audioManager!.beatDetectionEnabled);
+                await _settingsManager.setMusicVolume(widget.audioManager!.musicVolume);
+                await _settingsManager.setSfxVolume(widget.audioManager!.sfxVolume);
+                
+                // Notify game of settings change
+                widget.onSettingsChanged?.call();
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Audio settings updated'),
+                    backgroundColor: NeonTheme.electricBlue,
+                  ),
+                );
+              },
+            )
           : _buildAudioUnavailable(),
     );
   }

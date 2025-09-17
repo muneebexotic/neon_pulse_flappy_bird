@@ -5,10 +5,12 @@ import '../theme/neon_theme.dart';
 /// Audio settings widget for controlling music, sound effects, and beat sync
 class AudioSettings extends StatefulWidget {
   final AudioManager audioManager;
+  final VoidCallback? onSettingsChanged;
   
   const AudioSettings({
     super.key,
     required this.audioManager,
+    this.onSettingsChanged,
   });
 
   @override
@@ -84,6 +86,7 @@ class _AudioSettingsState extends State<AudioSettings> {
             (value) async {
               setState(() => _isMusicEnabled = value);
               await widget.audioManager.toggleMusic();
+              widget.onSettingsChanged?.call();
             },
           ),
           if (_isMusicEnabled) ...[
@@ -108,6 +111,7 @@ class _AudioSettingsState extends State<AudioSettings> {
             (value) async {
               setState(() => _isSfxEnabled = value);
               await widget.audioManager.toggleSfx();
+              widget.onSettingsChanged?.call();
             },
           ),
           if (_isSfxEnabled) ...[
@@ -132,6 +136,7 @@ class _AudioSettingsState extends State<AudioSettings> {
             (value) async {
               setState(() => _beatDetectionEnabled = value);
               await widget.audioManager.toggleBeatDetection();
+              widget.onSettingsChanged?.call();
             },
           ),
           if (_beatDetectionEnabled) ...[
