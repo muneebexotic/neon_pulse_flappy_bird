@@ -42,9 +42,12 @@ class AudioManager {
 
   /// Initialize the audio manager and load settings
   Future<void> initialize() async {
+    print('AudioManager: Starting initialization...');
     await _loadSettings();
+    print('AudioManager: Settings loaded - Music: $_isMusicEnabled, SFX: $_isSfxEnabled');
     await _preloadSounds();
     _setupAudioPlayers();
+    print('AudioManager: Initialization complete');
   }
 
   /// Load audio settings from shared preferences
@@ -69,8 +72,14 @@ class AudioManager {
 
   /// Setup audio player configurations
   void _setupAudioPlayers() {
-    _musicPlayer.setReleaseMode(ReleaseMode.loop);
-    _sfxPlayer.setReleaseMode(ReleaseMode.stop);
+    print('AudioManager: Setting up audio players...');
+    try {
+      _musicPlayer.setReleaseMode(ReleaseMode.loop);
+      _sfxPlayer.setReleaseMode(ReleaseMode.stop);
+      print('AudioManager: Audio players configured successfully');
+    } catch (e) {
+      print('AudioManager: Error setting up audio players: $e');
+    }
   }
 
   /// Preload commonly used sound effects
@@ -174,6 +183,7 @@ class AudioManager {
   /// Play a sound effect
   Future<void> playSoundEffect(SoundEffect effect) async {
     print('AudioManager: Attempting to play sound effect: $effect');
+    print('AudioManager: SFX enabled: $_isSfxEnabled, Volume: $_sfxVolume');
     
     if (!_isSfxEnabled) {
       print('AudioManager: SFX is disabled, skipping playback');
@@ -181,15 +191,27 @@ class AudioManager {
     }
     
     final soundFile = _getSoundFile(effect);
+    print('AudioManager: Sound file path: $soundFile');
+    
     if (soundFile != null) {
       try {
+        print('AudioManager: Setting volume to $_sfxVolume');
         await _sfxPlayer.setVolume(_sfxVolume);
-        await _sfxPlayer.play(AssetSource(soundFile));
+        
+        print('AudioManager: Creating AssetSource for: $soundFile');
+        final source = AssetSource(soundFile);
+        
+        print('AudioManager: Playing audio...');
+        await _sfxPlayer.play(source);
         print('AudioManager: SFX $effect played successfully');
       } catch (e) {
         print('AudioManager: Error playing sound effect $effect: ${e.toString()}');
+        print('AudioManager: Error type: ${e.runtimeType}');
         if (e.toString().contains('asset does not exist') || e.toString().contains('empty data')) {
           print('AudioManager: Sound file $soundFile appears to be missing or invalid (likely a placeholder)');
+        } else if (e.toString().contains('PlatformException')) {
+          print('AudioManager: Platform-specific audio error - this may be a Windows desktop issue');
+          print('AudioManager: Try checking Windows audio settings or running on mobile device');
         }
         // Continue silently - don't spam the console with stack traces for missing audio
       }
@@ -285,6 +307,13 @@ class AudioManager {
     _isMusicEnabled = !_isMusicEnabled;
     if (!_isMusicEnabled) {
       await stopBackgroundMusic();
+    } else {
+      // Restart background music when enabled
+      try {
+        await playBackgroundMusic('cyberpunk_theme.mp3');
+      } catch (e) {
+        print('AudioManager: Failed to restart music after toggle: $e');
+      }
     }
     await _saveSettings();
   }
@@ -340,6 +369,19 @@ class AudioManager {
     } catch (e) {
       print('AudioManager: Failed to play beep: $e');
     }
+  }
+
+  /// Test audio system functionality
+  Future<void> testAudioSystem() async {
+    print('AudioManager: Testing audio system...');
+    print('AudioManager: Music enabled: $_isMusicEnabled, Volume: $_musicVolume');
+    print('AudioManager: SFX enabled: $_isSfxEnabled, Volume: $_sfxVolume');
+    
+    // Test a simple sound effect
+    print('AudioManager: Testing jump sound effect...');
+    await playSoundEffect(SoundEffect.jump);
+    
+    print('AudioManager: Audio system test complete');
   }
 
   /// Dispose of resources

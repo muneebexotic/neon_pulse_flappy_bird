@@ -157,21 +157,27 @@ class _GameScreenState extends State<GameScreen>
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
-        // Auto-pause when app goes to background
+      case AppLifecycleState.hidden:
+        // Auto-pause when app goes to background and stop background music
         if (game.hasLoaded && game.gameState.status == GameStatus.playing && !game.gameState.isPaused) {
           _wasPlayingBeforeBackground = true;
           game.pauseGame();
         }
+        // Always stop background music when app goes to background
+        game.audioManager.stopBackgroundMusic();
         break;
       case AppLifecycleState.resumed:
-        // Don't auto-resume - let user manually resume
+        // Restart background music when returning to foreground
+        try {
+          game.audioManager.playBackgroundMusic('cyberpunk_theme.mp3');
+        } catch (e) {
+          print('Failed to restart background music: $e');
+        }
         _wasPlayingBeforeBackground = false;
         break;
       case AppLifecycleState.detached:
-        // App is being terminated
-        break;
-      case AppLifecycleState.hidden:
-        // App is hidden but still running
+        // App is being terminated - stop all audio
+        game.audioManager.stopBackgroundMusic();
         break;
     }
   }

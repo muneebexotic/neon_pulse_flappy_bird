@@ -17,7 +17,7 @@ class MainMenuScreen extends StatefulWidget {
   State<MainMenuScreen> createState() => _MainMenuScreenState();
 }
 
-class _MainMenuScreenState extends State<MainMenuScreen> {
+class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObserver {
   final CustomizationManager _customizationManager = CustomizationManager();
   late final AchievementManager _achievementManager;
   bool _isInitialized = false;
@@ -27,6 +27,47 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     super.initState();
     _achievementManager = AchievementManager(_customizationManager);
     _initializeCustomization();
+    
+    // Add observer for app lifecycle events
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        // Stop background music when app goes to background
+        AudioManager().stopBackgroundMusic();
+        break;
+      case AppLifecycleState.resumed:
+        // Restart background music when returning to foreground
+        if (_isInitialized) {
+          try {
+            AudioManager().playBackgroundMusic(
+              'cyberpunk_theme.mp3',
+              fadeIn: true,
+              fadeDuration: AnimationConfig.slow,
+            );
+          } catch (e) {
+            print('Failed to restart background music: $e');
+          }
+        }
+        break;
+      case AppLifecycleState.detached:
+        // App is being terminated - stop all audio
+        AudioManager().stopBackgroundMusic();
+        break;
+    }
   }
 
   Future<void> _initializeCustomization() async {
@@ -158,7 +199,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     () {
                       Navigator.of(context).push(
                         TransitionManager.fadeTransition(
-                          const SettingsScreen(),
+                          SettingsScreen(
+                            audioManager: AudioManager(),
+                          ),
                         ),
                       );
                     },

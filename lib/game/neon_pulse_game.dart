@@ -89,6 +89,9 @@ Future<void> onLoad() async {
   if (!_settingsManager.sfxEnabled) await _audioManager.toggleSfx();
   if (!_settingsManager.beatSyncEnabled) await _audioManager.toggleBeatDetection();
   
+  // Test audio system to diagnose any issues
+  await _audioManager.testAudioSystem();
+  
   // Initialize customization system
   await _customizationManager.initialize();
   
@@ -507,8 +510,8 @@ Future<void> onLoad() async {
     if (gameState.canPause()) {
       gameState.pauseGame();
       
-      // Pause background music (and beat detection)
-      _audioManager.stopBackgroundMusic();
+      // Don't stop background music when pausing - keep it playing
+      // This provides a better user experience
       
       debugPrint('Game paused');
     }
@@ -519,7 +522,7 @@ Future<void> onLoad() async {
     if (gameState.canResume()) {
       gameState.resumeGame();
       
-      // Resume background music (currently disabled due to placeholder file)
+      // Start beat generation for gameplay synchronization
       _audioManager.startBeatGenerationWithoutMusic();
       
       debugPrint('Game resumed');
@@ -533,8 +536,8 @@ Future<void> onLoad() async {
     // Update statistics and check achievements
     await _updateGameStatistics();
     
-    // Stop background music
-    _audioManager.stopBackgroundMusic();
+    // Don't stop background music when game ends - keep it playing in the background
+    // Background music should continue for a seamless experience
     
     debugPrint('Game ended - Score: ${gameState.currentScore}, High Score: ${gameState.highScore}');
   }

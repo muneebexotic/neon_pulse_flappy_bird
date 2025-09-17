@@ -88,6 +88,15 @@ flutter:
   assets:
     - assets/images/
     - assets/audio/
+    - assets/audio/music/
+    - assets/audio/sfx/
+    - assets/audio/beep.wav
+    - assets/audio/music/cyberpunk_theme.mp3
+    - assets/audio/sfx/collision.wav
+    - assets/audio/sfx/jump.wav
+    - assets/audio/sfx/power_up.wav
+    - assets/audio/sfx/pulse.wav
+    - assets/audio/sfx/score.wav
     - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
