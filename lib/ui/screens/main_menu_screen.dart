@@ -74,13 +74,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObse
     await _customizationManager.initialize();
     await _achievementManager.initialize();
     
-    // Start background music with fade-in
+    // Start background music with fade-in only if not already playing
     try {
-      await AudioManager().playBackgroundMusic(
-        'cyberpunk_theme.mp3',
-        fadeIn: true,
-        fadeDuration: AnimationConfig.slow,
-      );
+      final audioManager = AudioManager();
+      if (!audioManager.isMusicPlaying) {
+        await audioManager.playBackgroundMusic(
+          'cyberpunk_theme.mp3',
+          fadeIn: true,
+          fadeDuration: AnimationConfig.slow,
+        );
+      } else {
+        print('Background music is already playing, not restarting');
+      }
     } catch (e) {
       print('Failed to start background music: $e');
     }
