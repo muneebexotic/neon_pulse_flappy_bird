@@ -4,6 +4,7 @@ import '../../game/managers/accessibility_manager.dart';
 import '../../game/managers/haptic_manager.dart';
 import '../../game/managers/settings_manager.dart';
 import 'neon_slider.dart';
+import 'neon_container.dart';
 
 /// Accessibility settings widget with haptic and audio feedback options
 class AccessibilitySettings extends StatefulWidget {
@@ -27,10 +28,22 @@ class AccessibilitySettings extends StatefulWidget {
 class _AccessibilitySettingsState extends State<AccessibilitySettings> {
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return NeonContainer.electricBlue(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title
+          Text(
+            'Accessibility Settings',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: NeonTheme.electricBlue,
+              shadows: NeonTheme.getNeonGlow(NeonTheme.electricBlue),
+            ),
+          ),
+          const SizedBox(height: 20),
+          
           _buildSectionHeader('Haptic Feedback'),
           _buildHapticSettings(),
           const SizedBox(height: 24),

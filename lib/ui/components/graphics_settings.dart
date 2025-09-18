@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../game/managers/settings_manager.dart';
 import '../theme/neon_theme.dart';
+import 'neon_container.dart';
 
 /// Graphics settings widget with real-time preview
 class GraphicsSettings extends StatefulWidget {
@@ -33,28 +34,13 @@ class _GraphicsSettingsState extends State<GraphicsSettings> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: NeonTheme.darkPurple.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: NeonTheme.neonGreen.withOpacity(0.5),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: NeonTheme.neonGreen.withOpacity(0.3),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
+    return NeonContainer.settings(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Graphics Quality Selection
           _buildSectionTitle('Graphics Quality'),
+          const SizedBox(height: 20),
           _buildGraphicsQualitySelector(),
           const SizedBox(height: 20),
 

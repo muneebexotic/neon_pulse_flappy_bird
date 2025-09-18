@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../game/managers/settings_manager.dart';
 import '../../game/utils/performance_monitor.dart';
 import '../theme/neon_theme.dart';
+import 'neon_container.dart';
 
 /// Performance monitoring and debug settings widget
 class PerformanceSettings extends StatefulWidget {
@@ -25,23 +26,7 @@ class _PerformanceSettingsState extends State<PerformanceSettings> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: NeonTheme.darkPurple.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: NeonTheme.electricBlue.withOpacity(0.5),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: NeonTheme.electricBlue.withOpacity(0.3),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
+    return NeonContainer.electricBlue(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
