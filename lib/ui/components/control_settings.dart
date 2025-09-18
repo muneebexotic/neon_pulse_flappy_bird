@@ -93,9 +93,6 @@ class _ControlSettingsState extends State<ControlSettings> {
             _buildTestArea(),
             const SizedBox(height: 20),
           ],
-
-          // Control Guide
-          _buildControlGuide(),
         ],
       ),
     );
@@ -380,110 +377,6 @@ class _ControlSettingsState extends State<ControlSettings> {
     );
   }
 
-  Widget _buildControlGuide() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: NeonTheme.charcoal.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: NeonTheme.warningOrange.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                color: NeonTheme.warningOrange,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Control Guide',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: NeonTheme.warningOrange,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          
-          _buildGuideItem(
-            Icons.touch_app,
-            'Single Tap',
-            'Make the bird jump upward',
-            NeonTheme.electricBlue,
-          ),
-          const SizedBox(height: 8),
-          
-          _buildGuideItem(
-            Icons.double_arrow,
-            'Double Tap',
-            'Activate energy pulse to disable obstacles',
-            NeonTheme.hotPink,
-          ),
-          const SizedBox(height: 12),
-          
-          Text(
-            'Tip: Adjust sensitivity based on your device and playing style. Higher sensitivity means lighter taps are registered.',
-            style: TextStyle(
-              fontSize: 12,
-              color: NeonTheme.white.withOpacity(0.6),
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGuideItem(IconData icon, String title, String description, Color color) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 16,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: NeonTheme.white,
-                ),
-              ),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: NeonTheme.white.withOpacity(0.7),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   String _getSensitivityDescription(double sensitivity) {
     if (sensitivity < 0.8) return 'Gentle taps required - good for precise control';

@@ -62,11 +62,6 @@ class _DifficultySettingsState extends State<DifficultySettings> {
 
           // Difficulty Selection
           ...DifficultyLevel.values.map((difficulty) => _buildDifficultyOption(difficulty)),
-          
-          const SizedBox(height: 20),
-          
-          // Current Settings Preview
-          _buildSettingsPreview(),
         ],
       ),
     );
@@ -249,105 +244,6 @@ class _DifficultySettingsState extends State<DifficultySettings> {
     );
   }
 
-  Widget _buildSettingsPreview() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: NeonTheme.deepSpace.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: NeonTheme.electricBlue.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Current Settings Preview',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: NeonTheme.electricBlue,
-            ),
-          ),
-          const SizedBox(height: 12),
-          
-          Row(
-            children: [
-              Expanded(
-                child: _buildPreviewStat(
-                  'Game Speed',
-                  '${(_selectedDifficulty.speedMultiplier * 100).toInt()}%',
-                  Icons.speed,
-                  NeonTheme.hotPink,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildPreviewStat(
-                  'Obstacle Gap',
-                  '${(_selectedDifficulty.gapSizeMultiplier * 100).toInt()}%',
-                  Icons.height,
-                  NeonTheme.neonGreen,
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          Text(
-            'Tip: You can change difficulty anytime from the pause menu during gameplay.',
-            style: TextStyle(
-              fontSize: 12,
-              color: NeonTheme.white.withOpacity(0.6),
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreviewStat(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: NeonTheme.white.withOpacity(0.7),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _selectDifficulty(DifficultyLevel difficulty) async {
     setState(() => _selectedDifficulty = difficulty);
