@@ -11,7 +11,6 @@ class GameHUD extends StatelessWidget {
   final VoidCallback? onSettings;
   final String? pulseStatus;
   final bool isPulseReady;
-  final Map<String, dynamic>? performanceStats;
   final bool showDebugInfo;
   final List<ActivePowerUpEffect>? activePowerUps;
   final double? scoreMultiplier;
@@ -25,7 +24,6 @@ class GameHUD extends StatelessWidget {
     this.onSettings,
     this.pulseStatus,
     this.isPulseReady = false,
-    this.performanceStats,
     this.showDebugInfo = false,
     this.activePowerUps,
     this.scoreMultiplier,
@@ -81,12 +79,6 @@ class GameHUD extends StatelessWidget {
                 child: _buildPowerUpIndicators(),
               ),
             
-            // Debug Performance Info (if enabled)
-            if (showDebugInfo && performanceStats != null)
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: _buildPerformanceDisplay(),
-              ),
           ],
         ),
       ),
@@ -282,51 +274,6 @@ class GameHUD extends StatelessWidget {
     );
   }
 
-  Widget _buildPerformanceDisplay() {
-    if (performanceStats == null) return const SizedBox.shrink();
-    
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: Colors.yellow.withValues(alpha: 0.5),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'FPS: ${performanceStats!['averageFps']}',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.yellow,
-              fontFamily: 'monospace',
-            ),
-          ),
-          Text(
-            'Frame: ${performanceStats!['frameTimeMs']}ms',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.yellow,
-              fontFamily: 'monospace',
-            ),
-          ),
-          Text(
-            'Quality: ${performanceStats!['quality']}',
-            style: TextStyle(
-              fontSize: 10,
-              color: performanceStats!['performanceGood'] ? Colors.green : Colors.red,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
   
   Widget _buildPowerUpIndicators() {
     return Container(

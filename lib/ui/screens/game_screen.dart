@@ -208,7 +208,6 @@ class _GameScreenState extends State<GameScreen>
               isPaused: game.gameState.isPaused,
               pulseStatus: game.pulseManager.getPulseStatusText(),
               isPulseReady: game.pulseManager.pulseReady,
-              performanceStats: game.performanceStats,
               showDebugInfo: true, // Enable for debugging performance issues
               activePowerUps: game.powerUpManager.allActiveEffects,
               scoreMultiplier: game.gameState.scoreMultiplier,

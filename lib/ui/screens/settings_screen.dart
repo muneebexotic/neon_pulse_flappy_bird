@@ -3,7 +3,6 @@ import '../components/audio_settings.dart';
 import '../components/graphics_settings.dart';
 import '../components/difficulty_settings.dart';
 import '../components/control_settings.dart';
-import '../components/performance_settings.dart';
 import '../components/accessibility_settings.dart';
 import '../theme/neon_theme.dart';
 import '../../game/managers/audio_manager.dart';
@@ -45,7 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _settingsManager = widget.settingsManager ?? SettingsManager();
     _performanceMonitor = widget.performanceMonitor ?? PerformanceMonitor();
     _accessibilityManager = widget.accessibilityManager ?? AccessibilityManager();
@@ -102,7 +101,6 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                     _buildControlsTab(),
                     _buildAudioTab(),
                     _buildAccessibilityTab(),
-                    _buildPerformanceTab(),
                   ],
                 ),
               ),
@@ -184,10 +182,6 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
           Tab(
             icon: Icon(Icons.accessibility, size: 20),
             text: 'Accessibility',
-          ),
-          Tab(
-            icon: Icon(Icons.speed, size: 20),
-            text: 'Performance',
           ),
         ],
       ),
@@ -312,30 +306,6 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
     );
   }
 
-  Widget _buildPerformanceTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: PerformanceSettings(
-        settingsManager: _settingsManager,
-        performanceMonitor: _performanceMonitor,
-        onPerformanceMonitorToggled: (enabled) {
-          // Notify game of settings change
-          widget.onSettingsChanged?.call();
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                enabled 
-                  ? 'Performance monitor enabled' 
-                  : 'Performance monitor disabled'
-              ),
-              backgroundColor: NeonTheme.electricBlue,
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildAudioUnavailable() {
     return Container(
