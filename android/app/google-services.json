@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "236098925660",
+    "project_id": "neon-pulse-flappy-bird",
+    "storage_bucket": "neon-pulse-flappy-bird.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:236098925660:android:c7ab2ff479161d6bdb6299",
+        "android_client_info": {
+          "package_name": "com.example.neon_pulse_flappy_bird"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "236098925660-ugipdhdk1k1il61p896rvn6ql2b9f6un.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.neon_pulse_flappy_bird",
+            "certificate_hash": "7e1099b2a1a10e265217f7306cdb1c075ac0b938"
+          }
+        },
+        {
+          "client_id": "236098925660-rngodb7emi7p83tbpkvdfde8uut7d9cc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUyGnQBCKt9CNtSixUNdyZIz-y7OKzuSQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "236098925660-rngodb7emi7p83tbpkvdfde8uut7d9cc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "236098925660-ti4ra4a5hfv8ih56e5bmirhj0rm2unm1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.neonPulseFlappyBird"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

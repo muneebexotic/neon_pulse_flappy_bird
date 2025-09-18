@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Replace with your actual App ID from Google Play Console -->
+    <string name="app_id">YOUR_APP_ID_FROM_PLAY_CONSOLE</string>
+</resources>

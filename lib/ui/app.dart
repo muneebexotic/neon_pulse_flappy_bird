@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
+import 'screens/main_menu_screen.dart';
 
 class NeonPulseFlappyBirdApp extends StatelessWidget {
   const NeonPulseFlappyBirdApp({super.key});
@@ -11,6 +12,9 @@ class NeonPulseFlappyBirdApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: _buildNeonTheme(),
       home: const SplashScreen(),
+      routes: {
+        '/main-menu': (context) => const MainMenuScreen(),
+      },
     );
   }
 

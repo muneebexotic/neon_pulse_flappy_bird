@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Leaderboard scores - read by all, write by authenticated users only
+    match /leaderboards/{gameMode}/scores/{scoreId} {
+      allow read: if true;
+      allow write: if request.auth != null 
+        && request.auth.uid == resource.data.userId
+        && isValidScore(request.resource.data);
+    }
+    
+    // User profiles - read/write by owner only
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // User game statistics
+      match /gameStats/{statId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Global game statistics (read-only for clients)
+    match /globalStats/{statId} {
+      allow read: if true;
+      allow write: if false; // Only server functions can write
+    }
+    
+    // Validation functions
+    function isValidScore(data) {
+      return data.keys().hasAll(['score', 'timestamp', 'userId', 'playerName'])
+        && data.score is int 
+        && data.score >= 0 
+        && data.score <= 10000  // Maximum reasonable score
+        && data.timestamp is timestamp
+        && data.userId is string
+        && data.playerName is string
+        && data.playerName.size() <= 50; // Reasonable name length limit
+    }
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email'])
+        && data.uid is string
+        && data.displayName is string
+        && data.email is string
+        && data.displayName.size() <= 100
+        && data.email.size() <= 100;
+    }
+    
+    function isValidGameStats(data) {
+      return data.keys().hasAll(['totalGamesPlayed', 'bestScore', 'totalScore'])
+        && data.totalGamesPlayed is int
+        && data.bestScore is int
+        && data.totalScore is int
+        && data.totalGamesPlayed >= 0
+        && data.bestScore >= 0
+        && data.totalScore >= 0;
+    }
+  }
+}
