@@ -84,6 +84,9 @@ Future<void> onLoad() async {
   // Initialize audio system with settings
   await _audioManager.initialize();
   
+  // Initialize haptic manager
+  await HapticManager().initialize();
+  
   // Synchronize audio settings - AudioManager is the source of truth for audio
   // Update SettingsManager to match AudioManager's loaded values
   await _settingsManager.setMusicEnabled(_audioManager.isMusicEnabled);
@@ -91,6 +94,12 @@ Future<void> onLoad() async {
   await _settingsManager.setBeatSyncEnabled(_audioManager.beatDetectionEnabled);
   await _settingsManager.setMusicVolume(_audioManager.musicVolume);
   await _settingsManager.setSfxVolume(_audioManager.sfxVolume);
+  
+  // Synchronize haptic settings - HapticManager is the source of truth for haptic
+  await _settingsManager.setHapticEnabled(HapticManager().hapticEnabled);
+  await _settingsManager.setVibrationEnabled(HapticManager().vibrationEnabled);
+  await _settingsManager.setHapticIntensity(HapticManager().hapticIntensity);
+  await _settingsManager.setVibrationIntensity(HapticManager().vibrationIntensity);
   
   // Test audio system to diagnose any issues
   await _audioManager.testAudioSystem();
@@ -463,6 +472,9 @@ Future<void> onLoad() async {
       bird.jump();
       print('NeonPulseGame: Playing jump sound effect...');
       _audioManager.playSoundEffect(SoundEffect.jump);
+      
+      // Add haptic feedback for bird jump
+      HapticManager().lightImpact();
     }
   }
 

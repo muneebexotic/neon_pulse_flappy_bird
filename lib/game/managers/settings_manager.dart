@@ -33,6 +33,8 @@ class SettingsManager {
   // Haptic settings
   bool _hapticEnabled = true;
   bool _vibrationEnabled = true;
+  double _hapticIntensity = 1.0;
+  double _vibrationIntensity = 1.0;
 
   /// Initialize settings from shared preferences
   Future<void> initialize() async {
@@ -73,6 +75,8 @@ class SettingsManager {
     // Haptic settings
     _hapticEnabled = _prefs!.getBool('haptic_enabled') ?? true;
     _vibrationEnabled = _prefs!.getBool('vibration_enabled') ?? true;
+    _hapticIntensity = _prefs!.getDouble('haptic_intensity') ?? 1.0;
+    _vibrationIntensity = _prefs!.getDouble('vibration_intensity') ?? 1.0;
   }
 
   // Graphics Quality
@@ -164,6 +168,18 @@ class SettingsManager {
   Future<void> setVibrationEnabled(bool enabled) async {
     _vibrationEnabled = enabled;
     await _prefs?.setBool('vibration_enabled', enabled);
+  }
+
+  double get hapticIntensity => _hapticIntensity;
+  Future<void> setHapticIntensity(double intensity) async {
+    _hapticIntensity = intensity.clamp(0.0, 1.0);
+    await _prefs?.setDouble('haptic_intensity', _hapticIntensity);
+  }
+
+  double get vibrationIntensity => _vibrationIntensity;
+  Future<void> setVibrationIntensity(double intensity) async {
+    _vibrationIntensity = intensity.clamp(0.0, 1.0);
+    await _prefs?.setDouble('vibration_intensity', _vibrationIntensity);
   }
 
 

@@ -64,20 +64,56 @@ class _AccessibilitySettingsState extends State<AccessibilitySettings> {
           value: widget.settingsManager.hapticEnabled,
           onChanged: (value) async {
             await widget.settingsManager.setHapticEnabled(value);
+            await widget.hapticManager.setHapticEnabled(value);
             widget.onSettingsChanged?.call();
             setState(() {});
           },
         ),
         _buildSettingTile(
-          title: 'Vibration Intensity',
-          subtitle: 'Adjust vibration strength',
+          title: 'Vibration',
+          subtitle: 'Enable device vibration',
           value: widget.settingsManager.vibrationEnabled,
           onChanged: (value) async {
             await widget.settingsManager.setVibrationEnabled(value);
+            await widget.hapticManager.setVibrationEnabled(value);
             widget.onSettingsChanged?.call();
             setState(() {});
           },
         ),
+        if (widget.settingsManager.hapticEnabled) ...[
+          const SizedBox(height: 16),
+          _buildIntensitySlider(
+            title: 'Haptic Intensity',
+            subtitle: 'Adjust haptic feedback strength',
+            value: widget.settingsManager.hapticIntensity,
+            onChanged: (value) async {
+              await widget.settingsManager.setHapticIntensity(value);
+              await widget.hapticManager.setHapticIntensity(value);
+              widget.onSettingsChanged?.call();
+              setState(() {});
+            },
+            onTest: () async {
+              await widget.hapticManager.testHapticFeedback();
+            },
+          ),
+        ],
+        if (widget.settingsManager.vibrationEnabled) ...[
+          const SizedBox(height: 16),
+          _buildIntensitySlider(
+            title: 'Vibration Intensity',
+            subtitle: 'Adjust vibration strength',
+            value: widget.settingsManager.vibrationIntensity,
+            onChanged: (value) async {
+              await widget.settingsManager.setVibrationIntensity(value);
+              await widget.hapticManager.setVibrationIntensity(value);
+              widget.onSettingsChanged?.call();
+              setState(() {});
+            },
+            onTest: () async {
+              await widget.hapticManager.testVibration();
+            },
+          ),
+        ],
       ],
     );
   }
@@ -153,6 +189,98 @@ class _AccessibilitySettingsState extends State<AccessibilitySettings> {
             activeTrackColor: NeonTheme.electricBlue.withOpacity(0.3),
             inactiveThumbColor: Colors.grey,
             inactiveTrackColor: Colors.grey.withOpacity(0.3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIntensitySlider({
+    required String title,
+    required String subtitle,
+    required double value,
+    required ValueChanged<double> onChanged,
+    required VoidCallback onTest,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: NeonTheme.charcoal.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: NeonTheme.electricBlue.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: NeonTheme.electricBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: NeonTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: onTest,
+                icon: const Icon(
+                  Icons.play_arrow,
+                  color: NeonTheme.electricBlue,
+                ),
+                tooltip: 'Test $title',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text(
+                '0%',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: NeonTheme.textSecondary,
+                ),
+              ),
+              Expanded(
+                child: Slider(
+                  value: value,
+                  min: 0.0,
+                  max: 1.0,
+                  divisions: 10,
+                  activeColor: NeonTheme.electricBlue,
+                  inactiveColor: NeonTheme.electricBlue.withOpacity(0.3),
+                  onChanged: onChanged,
+                ),
+              ),
+              Text(
+                '${(value * 100).round()}%',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: NeonTheme.electricBlue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
       ),
