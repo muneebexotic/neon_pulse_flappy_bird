@@ -3,6 +3,7 @@ import '../theme/neon_theme.dart';
 import '../../game/managers/accessibility_manager.dart';
 import '../../game/managers/haptic_manager.dart';
 import '../../game/managers/settings_manager.dart';
+import 'neon_slider.dart';
 
 /// Accessibility settings widget with haptic and audio feedback options
 class AccessibilitySettings extends StatefulWidget {
@@ -202,88 +203,12 @@ class _AccessibilitySettingsState extends State<AccessibilitySettings> {
     required ValueChanged<double> onChanged,
     required VoidCallback onTest,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: NeonTheme.charcoal.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: NeonTheme.electricBlue.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: NeonTheme.electricBlue,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: NeonTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: onTest,
-                icon: const Icon(
-                  Icons.play_arrow,
-                  color: NeonTheme.electricBlue,
-                ),
-                tooltip: 'Test $title',
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Text(
-                '0%',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: NeonTheme.textSecondary,
-                ),
-              ),
-              Expanded(
-                child: Slider(
-                  value: value,
-                  min: 0.0,
-                  max: 1.0,
-                  divisions: 10,
-                  activeColor: NeonTheme.electricBlue,
-                  inactiveColor: NeonTheme.electricBlue.withOpacity(0.3),
-                  onChanged: onChanged,
-                ),
-              ),
-              Text(
-                '${(value * 100).round()}%',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: NeonTheme.electricBlue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return NeonIntensitySlider(
+      title: title,
+      subtitle: subtitle,
+      value: value,
+      onChanged: onChanged,
+      onTest: onTest,
     );
   }
 

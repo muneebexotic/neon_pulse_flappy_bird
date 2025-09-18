@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../game/managers/settings_manager.dart';
 import '../theme/neon_theme.dart';
+import 'neon_slider.dart';
 
 /// Control customization settings widget
 class ControlSettings extends StatefulWidget {
@@ -145,28 +146,19 @@ class _ControlSettingsState extends State<ControlSettings> {
         ),
         const SizedBox(height: 12),
         
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: NeonTheme.electricBlue,
-            inactiveTrackColor: NeonTheme.charcoal,
-            thumbColor: NeonTheme.hotPink,
-            overlayColor: NeonTheme.hotPink.withOpacity(0.2),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-            trackHeight: 6,
-          ),
-          child: Slider(
-            value: _tapSensitivity,
-            min: 0.5,
-            max: 2.0,
-            divisions: 15,
-            onChanged: (value) {
-              setState(() => _tapSensitivity = value);
-            },
-            onChangeEnd: (value) async {
-              await widget.settingsManager.setTapSensitivity(value);
-              widget.onTapSensitivityChanged?.call(value);
-            },
-          ),
+        NeonSlider(
+          value: _tapSensitivity,
+          min: 0.5,
+          max: 2.0,
+          divisions: 15,
+          activeTrackColor: NeonTheme.electricBlue,
+          onChanged: (value) {
+            setState(() => _tapSensitivity = value);
+          },
+          onChangeEnd: (value) async {
+            await widget.settingsManager.setTapSensitivity(value);
+            widget.onTapSensitivityChanged?.call(value);
+          },
         ),
         
         // Sensitivity markers
@@ -229,28 +221,19 @@ class _ControlSettingsState extends State<ControlSettings> {
         ),
         const SizedBox(height: 12),
         
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: NeonTheme.neonGreen,
-            inactiveTrackColor: NeonTheme.charcoal,
-            thumbColor: NeonTheme.hotPink,
-            overlayColor: NeonTheme.hotPink.withOpacity(0.2),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-            trackHeight: 6,
-          ),
-          child: Slider(
-            value: _doubleTapTiming,
-            min: 200.0,
-            max: 500.0,
-            divisions: 15,
-            onChanged: (value) {
-              setState(() => _doubleTapTiming = value);
-            },
-            onChangeEnd: (value) async {
-              await widget.settingsManager.setDoubleTapTiming(value);
-              widget.onDoubleTapTimingChanged?.call(value);
-            },
-          ),
+        NeonSlider(
+          value: _doubleTapTiming,
+          min: 200.0,
+          max: 500.0,
+          divisions: 15,
+          activeTrackColor: NeonTheme.neonGreen,
+          onChanged: (value) {
+            setState(() => _doubleTapTiming = value);
+          },
+          onChangeEnd: (value) async {
+            await widget.settingsManager.setDoubleTapTiming(value);
+            widget.onDoubleTapTimingChanged?.call(value);
+          },
         ),
         
         // Timing markers

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../game/managers/audio_manager.dart';
 import '../theme/neon_theme.dart';
+import 'neon_slider.dart';
 
 /// Audio settings widget for controlling music, sound effects, and beat sync
 class AudioSettings extends StatefulWidget {
@@ -205,33 +206,11 @@ class _AudioSettingsState extends State<AudioSettings> {
   }
 
   Widget _buildVolumeSlider(String label, double value, Function(double) onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$label: ${(value * 100).toInt()}%',
-          style: TextStyle(
-            fontSize: 14,
-            color: NeonTheme.neonGreen.withOpacity(0.8),
-          ),
-        ),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: NeonTheme.electricBlue,
-            inactiveTrackColor: NeonTheme.charcoal,
-            thumbColor: NeonTheme.hotPink,
-            overlayColor: NeonTheme.hotPink.withOpacity(0.2),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-          ),
-          child: Slider(
-            value: value,
-            onChanged: onChanged,
-            min: 0.0,
-            max: 1.0,
-            divisions: 20,
-          ),
-        ),
-      ],
+    return NeonPercentageSlider(
+      value: value,
+      label: label,
+      divisions: 20,
+      onChanged: onChanged,
     );
   }
 
