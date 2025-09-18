@@ -199,7 +199,6 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
       padding: const EdgeInsets.all(20),
       child: GraphicsSettings(
         settingsManager: _settingsManager,
-        performanceMonitor: _performanceMonitor,
         onGraphicsQualityChanged: (quality) {
           // Notify game of settings change
           widget.onSettingsChanged?.call();

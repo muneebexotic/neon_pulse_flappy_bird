@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../game/managers/settings_manager.dart';
-import '../../game/utils/performance_monitor.dart';
 import '../theme/neon_theme.dart';
 
 /// Graphics settings widget with real-time preview
 class GraphicsSettings extends StatefulWidget {
   final SettingsManager settingsManager;
-  final PerformanceMonitor performanceMonitor;
   final Function(GraphicsQuality)? onGraphicsQualityChanged;
   final Function(ParticleQuality)? onParticleQualityChanged;
   
   const GraphicsSettings({
     super.key,
     required this.settingsManager,
-    required this.performanceMonitor,
     this.onGraphicsQualityChanged,
     this.onParticleQualityChanged,
   });
@@ -56,35 +53,6 @@ class _GraphicsSettingsState extends State<GraphicsSettings> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
-          Row(
-            children: [
-              Text(
-                'Graphics & Performance',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: NeonTheme.neonGreen,
-                  shadows: NeonTheme.getNeonGlow(NeonTheme.neonGreen),
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: () => setState(() => _showPreview = !_showPreview),
-                icon: Icon(
-                  _showPreview ? Icons.visibility_off : Icons.visibility,
-                  color: NeonTheme.electricBlue,
-                ),
-                tooltip: 'Toggle Preview',
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Performance Info
-          _buildPerformanceInfo(),
-          const SizedBox(height: 20),
-
           // Graphics Quality Selection
           _buildSectionTitle('Graphics Quality'),
           _buildGraphicsQualitySelector(),
@@ -109,69 +77,6 @@ class _GraphicsSettingsState extends State<GraphicsSettings> {
     );
   }
 
-  Widget _buildPerformanceInfo() {
-    final stats = widget.performanceMonitor.getStats();
-    final fps = double.tryParse(stats['averageFps']) ?? 0.0;
-    final frameTime = double.tryParse(stats['frameTimeMs']) ?? 0.0;
-    final quality = double.tryParse(stats['quality']) ?? 0.0;
-
-    Color fpsColor = NeonTheme.neonGreen;
-    if (fps < 45) fpsColor = NeonTheme.warningOrange;
-    if (fps < 30) fpsColor = Colors.red;
-
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: NeonTheme.charcoal.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: fpsColor.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatItem('FPS', '${fps.toStringAsFixed(1)}', fpsColor),
-              _buildStatItem('Frame Time', '${frameTime.toStringAsFixed(1)}ms', NeonTheme.electricBlue),
-              _buildStatItem('Quality', '${(quality * 100).toInt()}%', NeonTheme.hotPink),
-            ],
-          ),
-          const SizedBox(height: 10),
-          LinearProgressIndicator(
-            value: quality,
-            backgroundColor: NeonTheme.charcoal,
-            valueColor: AlwaysStoppedAnimation<Color>(fpsColor),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-            shadows: NeonTheme.getNeonGlow(color),
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: NeonTheme.white.withOpacity(0.7),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildSectionTitle(String title) {
     return Text(
@@ -189,9 +94,6 @@ class _GraphicsSettingsState extends State<GraphicsSettings> {
     return Column(
       children: GraphicsQuality.values.map((quality) {
         final isSelected = quality == _selectedGraphicsQuality;
-        final isRecommended = quality == widget.settingsManager.getRecommendedGraphicsQuality(
-          widget.performanceMonitor.performanceQuality
-        );
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
@@ -225,39 +127,13 @@ class _GraphicsSettingsState extends State<GraphicsSettings> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Text(
-                              quality.displayName,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: isSelected ? NeonTheme.electricBlue : NeonTheme.white,
-                              ),
-                            ),
-                            if (isRecommended) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: NeonTheme.neonGreen.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: NeonTheme.neonGreen.withOpacity(0.5),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  'RECOMMENDED',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: NeonTheme.neonGreen,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                        Text(
+                          quality.displayName,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: isSelected ? NeonTheme.electricBlue : NeonTheme.white,
+                          ),
                         ),
                         Text(
                           quality.description,
