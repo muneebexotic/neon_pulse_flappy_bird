@@ -4,6 +4,7 @@ import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'customization_screen.dart';
 import 'achievements_screen.dart';
+import 'leaderboard_screen.dart';
 import '../../game/managers/customization_manager.dart';
 import '../../game/managers/achievement_manager.dart';
 import '../../game/managers/audio_manager.dart';
@@ -188,6 +189,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObse
                         ),
                       );
                     } : null,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildMenuButton(
+                    context,
+                    'LEADERBOARD',
+                    () {
+                      Navigator.of(context).push(
+                        TransitionManager.slideTransition(
+                          const LeaderboardScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 20),
                   _buildMenuButton(
