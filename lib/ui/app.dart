@@ -1,20 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/authentication_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/main_menu_screen.dart';
+import 'screens/authentication_screen.dart';
 
 class NeonPulseFlappyBirdApp extends StatelessWidget {
   const NeonPulseFlappyBirdApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Neon Pulse Flappy Bird',
-      debugShowCheckedModeBanner: false,
-      theme: _buildNeonTheme(),
-      home: const SplashScreen(),
-      routes: {
-        '/main-menu': (context) => const MainMenuScreen(),
-      },
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => AuthenticationProvider(),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Neon Pulse Flappy Bird',
+        debugShowCheckedModeBanner: false,
+        theme: _buildNeonTheme(),
+        home: const SplashScreen(),
+        routes: {
+          '/main-menu': (context) => const MainMenuScreen(),
+          '/auth': (context) => const AuthenticationScreen(),
+        },
+      ),
     );
   }
 
