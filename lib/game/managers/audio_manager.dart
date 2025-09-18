@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Manages all audio functionality including music, sound effects, and beat detection
+/// Manages all audio functionality including music and sound effects
 class AudioManager {
   static final AudioManager _instance = AudioManager._internal();
   factory AudioManager() => _instance;
@@ -18,27 +18,14 @@ class AudioManager {
   bool _isMusicEnabled = true;
   bool _isSfxEnabled = true;
   
-  // Beat detection
-  bool _beatDetectionEnabled = true;
-  double _currentBpm = 128.0; // Default BPM
-  DateTime? _lastBeatTime;
-  Timer? _beatTimer;
-  final List<double> _beatIntervals = [];
-  
   // Audio caching
   final Map<String, String> _cachedSounds = {};
-  
-  // Beat synchronization
-  final StreamController<BeatEvent> _beatController = StreamController<BeatEvent>.broadcast();
-  Stream<BeatEvent> get beatStream => _beatController.stream;
   
   // Getters
   double get musicVolume => _musicVolume;
   double get sfxVolume => _sfxVolume;
   bool get isMusicEnabled => _isMusicEnabled;
   bool get isSfxEnabled => _isSfxEnabled;
-  bool get beatDetectionEnabled => _beatDetectionEnabled;
-  double get currentBpm => _currentBpm;
 
   /// Initialize the audio manager and load settings
   Future<void> initialize() async {
@@ -57,7 +44,6 @@ class AudioManager {
     _sfxVolume = prefs.getDouble('sfx_volume') ?? 0.8;
     _isMusicEnabled = prefs.getBool('music_enabled') ?? true;
     _isSfxEnabled = prefs.getBool('sfx_enabled') ?? true;
-    _beatDetectionEnabled = prefs.getBool('beat_detection_enabled') ?? true;
   }
 
   /// Save audio settings to shared preferences
@@ -67,7 +53,6 @@ class AudioManager {
     await prefs.setDouble('sfx_volume', _sfxVolume);
     await prefs.setBool('music_enabled', _isMusicEnabled);
     await prefs.setBool('sfx_enabled', _isSfxEnabled);
-    await prefs.setBool('beat_detection_enabled', _beatDetectionEnabled);
   }
 
   /// Setup audio player configurations
@@ -131,18 +116,11 @@ class AudioManager {
         await _fadeInMusic(fadeDuration);
       }
       
-      if (_beatDetectionEnabled) {
-        print('AudioManager: Starting beat detection');
-        _startBeatDetection();
-      } else {
-        print('AudioManager: Beat detection is disabled');
-      }
     } catch (e) {
       print('AudioManager: Error playing background music: $e');
       print('AudioManager: This is likely because the audio file is missing or invalid');
       print('AudioManager: The game will continue with sound effects only');
       print('AudioManager: See AUDIO_SETUP.md for instructions on adding music files');
-      startBeatGenerationWithoutMusic();
     }
   }
 
@@ -171,13 +149,12 @@ class AudioManager {
     }
   }
 
-  /// Stop background music and beat detection with optional fade-out
+  /// Stop background music with optional fade-out
   Future<void> stopBackgroundMusic({bool fadeOut = false, Duration fadeDuration = const Duration(milliseconds: 1000)}) async {
     if (fadeOut && _musicPlayer.state == PlayerState.playing) {
       await _fadeOutMusic(fadeDuration);
     }
     await _musicPlayer.stop();
-    _stopBeatDetection();
   }
 
   /// Play a sound effect
@@ -237,57 +214,6 @@ class AudioManager {
     }
   }
 
-  /// Start beat detection algorithm
-  void _startBeatDetection() {
-    _lastBeatTime = DateTime.now();
-    
-    // Simple beat detection based on BPM
-    final beatInterval = Duration(milliseconds: (60000 / _currentBpm).round());
-    
-    _beatTimer = Timer.periodic(beatInterval, (timer) {
-      final now = DateTime.now();
-      if (_lastBeatTime != null) {
-        final interval = now.difference(_lastBeatTime!).inMilliseconds.toDouble();
-        _beatIntervals.add(interval);
-        
-        // Keep only recent intervals for BPM calculation
-        if (_beatIntervals.length > 10) {
-          _beatIntervals.removeAt(0);
-        }
-        
-        // Calculate average BPM
-        if (_beatIntervals.isNotEmpty) {
-          final avgInterval = _beatIntervals.reduce((a, b) => a + b) / _beatIntervals.length;
-          _currentBpm = 60000 / avgInterval;
-        }
-      }
-      
-      _lastBeatTime = now;
-      _beatController.add(BeatEvent(now, _currentBpm));
-    });
-  }
-
-  /// Stop beat detection
-  void _stopBeatDetection() {
-    _beatTimer?.cancel();
-    _beatTimer = null;
-    _beatIntervals.clear();
-  }
-
-  /// Fallback beat generation when audio analysis fails
-  void startBeatGenerationWithoutMusic() {
-    print('AudioManager: Starting fallback beat generation');
-    
-    if (!_beatDetectionEnabled) {
-      print('AudioManager: Beat detection is disabled, skipping fallback');
-      return;
-    }
-    
-    // Use predetermined BPM for consistent gameplay
-    _currentBpm = 128.0;
-    print('AudioManager: Using fallback BPM: $_currentBpm');
-    _startBeatDetection();
-  }
 
   /// Update music volume
   Future<void> setMusicVolume(double volume) async {
@@ -324,38 +250,10 @@ class AudioManager {
     await _saveSettings();
   }
 
-  /// Toggle beat detection on/off
-  Future<void> toggleBeatDetection() async {
-    _beatDetectionEnabled = !_beatDetectionEnabled;
-    if (!_beatDetectionEnabled) {
-      _stopBeatDetection();
-    } else if (_musicPlayer.state == PlayerState.playing) {
-      _startBeatDetection();
-    }
-    await _saveSettings();
-  }
 
   /// Check if background music is currently playing
   bool get isMusicPlaying => _musicPlayer.state == PlayerState.playing;
   
-  /// Get the next predicted beat time
-  DateTime? getNextBeatTime() {
-    if (_lastBeatTime == null) return null;
-    
-    final beatInterval = Duration(milliseconds: (60000 / _currentBpm).round());
-    return _lastBeatTime!.add(beatInterval);
-  }
-
-  /// Check if a beat is expected within the given time window
-  bool isBeatExpected(Duration timeWindow) {
-    final nextBeat = getNextBeatTime();
-    if (nextBeat == null) return false;
-    
-    final now = DateTime.now();
-    final timeToBeat = nextBeat.difference(now);
-    
-    return timeToBeat.abs() <= timeWindow;
-  }
 
   /// Play a beep sound for accessibility feedback
   Future<void> playBeep({required double frequency, required int duration}) async {
@@ -386,20 +284,11 @@ class AudioManager {
 
   /// Dispose of resources
   void dispose() {
-    _beatTimer?.cancel();
     _musicPlayer.dispose();
     _sfxPlayer.dispose();
-    _beatController.close();
   }
 }
 
-/// Represents a beat event for synchronization
-class BeatEvent {
-  final DateTime timestamp;
-  final double bpm;
-  
-  const BeatEvent(this.timestamp, this.bpm);
-}
 
 /// Available sound effects
 enum SoundEffect {

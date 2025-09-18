@@ -9,7 +9,6 @@
 ✅ **All Sound Effects**: jump.wav, collision.wav, pulse.wav, power_up.wav, score.wav are now present
 ✅ **Background Music**: cyberpunk_theme.mp3 is present (real audio file ~1.3MB)
 ✅ **Audio System**: Complete audio management system with volume controls
-✅ **Beat Detection**: Fallback beat generation for gameplay synchronization
 ✅ **Settings**: Audio settings are saved and loaded properly
 ✅ **Error Handling**: Graceful handling of audio playback issues
 
@@ -84,7 +83,6 @@ If you see "Platform-specific audio error", this indicates a Windows desktop com
 
 - **Audio Engine**: Uses `audioplayers` package
 - **Supported Formats**: MP3, WAV, AAC, OGG
-- **Beat Detection**: Automatic BPM detection with fallback to 128 BPM
 - **Volume Control**: Separate controls for music and sound effects
 - **Persistence**: Audio settings are saved locally
 

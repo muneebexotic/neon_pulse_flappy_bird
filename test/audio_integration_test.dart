@@ -31,21 +31,6 @@ void main() {
       expect(game.gameState.status.name, equals('playing'));
     });
 
-    test('should handle beat synchronization', () async {
-      game.startGame();
-      
-      // Simulate beat detection
-      final beatEvents = <BeatEvent>[];
-      final subscription = audioManager.beatStream.listen((event) {
-        beatEvents.add(event);
-      });
-      
-      // Test that obstacle manager receives beat events
-      game.obstacleManager.onBeatDetected(130.0);
-      expect(game.obstacleManager.currentBpm, equals(130.0));
-      
-      await subscription.cancel();
-    });
 
     test('should stop music when game ends', () async {
       game.startGame();
@@ -69,20 +54,6 @@ void main() {
       expect(game.gameState.isPaused, isFalse);
     });
 
-    test('should synchronize obstacle spawning with beats', () async {
-      game.startGame();
-      
-      final initialObstacleCount = game.obstacleManager.obstacleCount;
-      
-      // Enable beat synchronization
-      game.obstacleManager.setBeatSyncEnabled(true);
-      
-      // Simulate beat detection
-      game.obstacleManager.onBeatDetected(128.0);
-      
-      expect(game.obstacleManager.beatSyncEnabled, isTrue);
-      expect(game.obstacleManager.currentBpm, equals(128.0));
-    });
 
     test('should handle audio settings changes', () async {
       // Test volume changes
@@ -95,25 +66,12 @@ void main() {
       // Test toggles
       await audioManager.toggleMusic();
       await audioManager.toggleSfx();
-      await audioManager.toggleBeatDetection();
       
       // Verify settings were applied
       expect(audioManager.isMusicEnabled, isFalse);
       expect(audioManager.isSfxEnabled, isFalse);
-      expect(audioManager.beatDetectionEnabled, isFalse);
     });
 
-    test('should handle fallback when beat detection fails', () async {
-      game.startGame();
-      
-      // Disable beat detection
-      await audioManager.toggleBeatDetection();
-      expect(audioManager.beatDetectionEnabled, isFalse);
-      
-      // Obstacle manager should still work without beat sync
-      game.obstacleManager.setBeatSyncEnabled(false);
-      expect(game.obstacleManager.beatSyncEnabled, isFalse);
-    });
 
     tearDown(() {
       audioManager.dispose();

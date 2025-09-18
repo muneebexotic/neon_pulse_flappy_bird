@@ -1,7 +1,7 @@
 # Neon Pulse - Google Play Store Description
 
 ## Short Description (80 characters max)
-Cyberpunk Flappy Bird with energy pulses, neon effects & beat sync gameplay!
+Cyberpunk Flappy Bird with energy pulses and stunning neon effects!
 
 ## Full Description
 
@@ -13,7 +13,6 @@ Experience the future of mobile gaming with Neon Pulse! This isn't just another 
 
 ⚡ **Energy Pulse System** - Master the double-tap mechanic to emit energy pulses that temporarily disable obstacles. Strategic timing and cooldown management are key to survival!
 
-🎵 **Beat-Synchronized Action** - Feel the rhythm as obstacles spawn in sync with our custom cyberpunk soundtrack. Perfect timing rewards you with bonus points!
 
 💫 **Next-Gen Visual Effects:**
 - Dynamic particle trails that reflect your performance
@@ -45,7 +44,7 @@ Experience the future of mobile gaming with Neon Pulse! This isn't just another 
 - No intrusive ads or pay-to-win mechanics
 
 🌐 **Why Neon Pulse Stands Out:**
-Unlike traditional endless runners, Neon Pulse integrates its cyberpunk theme into core gameplay mechanics. The pulse system adds strategic depth, while beat synchronization creates a unique rhythm-action hybrid that's never been done before in the genre.
+Unlike traditional endless runners, Neon Pulse integrates its cyberpunk theme into core gameplay mechanics. The pulse system adds strategic depth and creates a unique action experience that's never been done before in the genre.
 
 Perfect for:
 ✅ Flappy Bird fans seeking innovation
@@ -60,7 +59,6 @@ Join thousands of players already experiencing the future of mobile gaming. Down
 🚀 **Version 1.0.0 - Launch Edition**
 - Complete cyberpunk Flappy Bird experience
 - Energy pulse mechanic with strategic gameplay
-- Beat-synchronized obstacle spawning
 - Stunning particle effects and neon visuals
 - Progressive difficulty with multiple obstacle types
 - Power-up system with three unique abilities

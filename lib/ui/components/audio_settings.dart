@@ -3,7 +3,7 @@ import '../../game/managers/audio_manager.dart';
 import '../theme/neon_theme.dart';
 import 'neon_slider.dart';
 
-/// Audio settings widget for controlling music, sound effects, and beat sync
+/// Audio settings widget for controlling music and sound effects
 class AudioSettings extends StatefulWidget {
   final AudioManager audioManager;
   final VoidCallback? onSettingsChanged;
@@ -23,7 +23,6 @@ class _AudioSettingsState extends State<AudioSettings> {
   late double _sfxVolume;
   late bool _isMusicEnabled;
   late bool _isSfxEnabled;
-  late bool _beatDetectionEnabled;
 
   @override
   void initState() {
@@ -36,7 +35,6 @@ class _AudioSettingsState extends State<AudioSettings> {
     _sfxVolume = widget.audioManager.sfxVolume;
     _isMusicEnabled = widget.audioManager.isMusicEnabled;
     _isSfxEnabled = widget.audioManager.isSfxEnabled;
-    _beatDetectionEnabled = widget.audioManager.beatDetectionEnabled;
   }
 
   @override
@@ -130,20 +128,6 @@ class _AudioSettingsState extends State<AudioSettings> {
           const SizedBox(height: 20),
           
           // Beat Synchronization
-          _buildSectionTitle('Beat Synchronization'),
-          _buildToggleRow(
-            'Enable Beat Sync',
-            _beatDetectionEnabled,
-            (value) async {
-              setState(() => _beatDetectionEnabled = value);
-              await widget.audioManager.toggleBeatDetection();
-              widget.onSettingsChanged?.call();
-            },
-          ),
-          if (_beatDetectionEnabled) ...[
-            const SizedBox(height: 10),
-            _buildInfoRow('Current BPM', '${widget.audioManager.currentBpm.toStringAsFixed(1)}'),
-          ],
           
           const SizedBox(height: 20),
           

@@ -28,7 +28,6 @@ class SettingsManager {
   double _sfxVolume = 0.8;
   bool _musicEnabled = true;
   bool _sfxEnabled = true;
-  bool _beatSyncEnabled = true;
   
   // Haptic settings
   bool _hapticEnabled = true;
@@ -70,7 +69,6 @@ class SettingsManager {
     _sfxVolume = _prefs!.getDouble('sfx_volume') ?? 0.8;
     _musicEnabled = _prefs!.getBool('music_enabled') ?? true;
     _sfxEnabled = _prefs!.getBool('sfx_enabled') ?? true;
-    _beatSyncEnabled = _prefs!.getBool('beat_sync_enabled') ?? true;
     
     // Haptic settings
     _hapticEnabled = _prefs!.getBool('haptic_enabled') ?? true;
@@ -151,11 +149,6 @@ class SettingsManager {
     await _prefs?.setBool('sfx_enabled', enabled);
   }
 
-  bool get beatSyncEnabled => _beatSyncEnabled;
-  Future<void> setBeatSyncEnabled(bool enabled) async {
-    _beatSyncEnabled = enabled;
-    await _prefs?.setBool('beat_sync_enabled', enabled);
-  }
 
   // Haptic Settings
   bool get hapticEnabled => _hapticEnabled;

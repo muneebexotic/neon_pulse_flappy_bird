@@ -13,27 +13,6 @@ void main() {
       expect(SoundEffect.values, contains(SoundEffect.powerUp));
     });
 
-    test('should create beat event with correct properties', () {
-      final timestamp = DateTime.now();
-      const bpm = 128.0;
-      final beatEvent = BeatEvent(timestamp, bpm);
-      
-      expect(beatEvent.timestamp, equals(timestamp));
-      expect(beatEvent.bpm, equals(bpm));
-    });
-
-    test('should handle beat event creation with different BPM values', () {
-      final now = DateTime.now();
-      
-      final slowBeat = BeatEvent(now, 60.0);
-      expect(slowBeat.bpm, equals(60.0));
-      
-      final fastBeat = BeatEvent(now, 180.0);
-      expect(fastBeat.bpm, equals(180.0));
-      
-      final normalBeat = BeatEvent(now, 120.0);
-      expect(normalBeat.bpm, equals(120.0));
-    });
 
     test('should validate sound effect enum completeness', () {
       final effectNames = SoundEffect.values.map((e) => e.name).toList();

@@ -91,7 +91,6 @@ Future<void> onLoad() async {
   // Update SettingsManager to match AudioManager's loaded values
   await _settingsManager.setMusicEnabled(_audioManager.isMusicEnabled);
   await _settingsManager.setSfxEnabled(_audioManager.isSfxEnabled);
-  await _settingsManager.setBeatSyncEnabled(_audioManager.beatDetectionEnabled);
   await _settingsManager.setMusicVolume(_audioManager.musicVolume);
   await _settingsManager.setSfxVolume(_audioManager.sfxVolume);
   
@@ -122,8 +121,6 @@ Future<void> onLoad() async {
   // Initialize game components
   _setupGameComponents();
   
-  // Set up beat synchronization
-  _setupBeatSynchronization();
   
   // Set up performance optimization callbacks
   _setupPerformanceOptimization();
@@ -294,17 +291,6 @@ Future<void> onLoad() async {
     debugPrint('Game components initialized');
   }
 
-  /// Set up beat synchronization with obstacle spawning
-  void _setupBeatSynchronization() {
-    _audioManager.beatStream.listen((beatEvent) {
-      if (gameState.status == GameStatus.playing && !gameState.isPaused) {
-        // Synchronize obstacle spawning with beats
-        obstacleManager.onBeatDetected(beatEvent.bpm);
-      }
-    });
-    
-    debugPrint('Beat synchronization initialized');
-  }
 
   @override
   void update(double dt) {
@@ -514,8 +500,6 @@ Future<void> onLoad() async {
     background.setGridAnimationSpeed(0.5);
     background.setColorShiftSpeed(0.3);
     
-    // Start beat detection without music for now
-    _audioManager.startBeatGenerationWithoutMusic();
     
     debugPrint('Game started - Status: ${gameState.status}');
   }
@@ -537,8 +521,6 @@ Future<void> onLoad() async {
     if (gameState.canResume()) {
       gameState.resumeGame();
       
-      // Start beat generation for gameplay synchronization
-      _audioManager.startBeatGenerationWithoutMusic();
       
       debugPrint('Game resumed');
     }

@@ -32,11 +32,6 @@ class ObstacleManager extends Component {
   int difficultyLevel = 1;
   DifficultyLevel? settingsDifficultyLevel;
 
-  // Beat synchronization
-  bool beatSyncEnabled = false;
-  double lastBeatTime = 0.0;
-  double currentBpm = 128.0;
-  bool waitingForBeat = false;
 
   ObstacleManager({required this.worldWidth, required this.worldHeight});
 
@@ -57,7 +52,6 @@ class ObstacleManager extends Component {
     if (_shouldSpawnObstacle()) {
       _spawnObstacle();
       spawnTimer = 0.0;
-      waitingForBeat = false;
     }
 
     // Update all obstacles
@@ -255,36 +249,11 @@ class ObstacleManager extends Component {
     return obstacles.any((obstacle) => obstacle.isDisabled);
   }
 
-  /// Handle beat detection for synchronized spawning
-  void onBeatDetected(double bpm) {
-    currentBpm = bpm;
-    lastBeatTime = spawnTimer;
 
-    if (beatSyncEnabled &&
-        waitingForBeat &&
-        spawnTimer >= _getMinSpawnInterval()) {
-      _spawnObstacle();
-      spawnTimer = 0.0;
-      waitingForBeat = false;
-    }
-  }
-
-  /// Check if obstacle should be spawned based on timing and beat sync
+  /// Check if obstacle should be spawned based on timing
   bool _shouldSpawnObstacle() {
     final adjustedInterval = _getAdjustedSpawnInterval();
-
-    if (!beatSyncEnabled) {
-      // Normal time-based spawning
-      return spawnTimer >= adjustedInterval;
-    }
-
-    // Beat-synchronized spawning
-    if (spawnTimer >= adjustedInterval) {
-      waitingForBeat = true;
-    }
-
-    // Allow spawning if we've waited too long (fallback)
-    return spawnTimer >= adjustedInterval * 1.5;
+    return spawnTimer >= adjustedInterval;
   }
 
   /// Get minimum spawn interval to prevent obstacles from being too close
@@ -292,9 +261,4 @@ class ObstacleManager extends Component {
     return spawnInterval * 0.7; // Minimum 70% of base interval
   }
 
-  /// Enable or disable beat synchronization
-  void setBeatSyncEnabled(bool enabled) {
-    beatSyncEnabled = enabled;
-    waitingForBeat = false;
-  }
 }

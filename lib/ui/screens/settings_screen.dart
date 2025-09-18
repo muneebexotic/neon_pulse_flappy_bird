@@ -266,7 +266,6 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                 // Synchronize SettingsManager with AudioManager when audio settings change
                 await _settingsManager.setMusicEnabled(widget.audioManager!.isMusicEnabled);
                 await _settingsManager.setSfxEnabled(widget.audioManager!.isSfxEnabled);
-                await _settingsManager.setBeatSyncEnabled(widget.audioManager!.beatDetectionEnabled);
                 await _settingsManager.setMusicVolume(widget.audioManager!.musicVolume);
                 await _settingsManager.setSfxVolume(widget.audioManager!.sfxVolume);
                 

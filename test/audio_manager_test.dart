@@ -16,8 +16,6 @@ void main() {
       expect(audioManager.sfxVolume, equals(0.8));
       expect(audioManager.isMusicEnabled, isTrue);
       expect(audioManager.isSfxEnabled, isTrue);
-      expect(audioManager.beatDetectionEnabled, isTrue);
-      expect(audioManager.currentBpm, equals(128.0));
     });
 
     test('should update music volume within valid range', () async {
@@ -62,40 +60,6 @@ void main() {
       expect(audioManager.isSfxEnabled, equals(initialState));
     });
 
-    test('should toggle beat detection enabled state', () async {
-      final initialState = audioManager.beatDetectionEnabled;
-      await audioManager.toggleBeatDetection();
-      expect(audioManager.beatDetectionEnabled, equals(!initialState));
-      
-      await audioManager.toggleBeatDetection();
-      expect(audioManager.beatDetectionEnabled, equals(initialState));
-    });
-
-    test('should predict next beat time correctly', () {
-      // This test would need to be more sophisticated in a real implementation
-      // For now, we test that it returns null when no beat has been detected
-      expect(audioManager.getNextBeatTime(), isNull);
-    });
-
-    test('should check if beat is expected within time window', () {
-      // When no beat has been detected, should return false
-      expect(audioManager.isBeatExpected(const Duration(milliseconds: 100)), isFalse);
-    });
-
-    test('should handle beat events through stream', () async {
-      final beatEvents = <BeatEvent>[];
-      final subscription = audioManager.beatStream.listen((event) {
-        beatEvents.add(event);
-      });
-
-      // Test that beat stream is available
-      expect(audioManager.beatStream, isNotNull);
-      
-      // Test current BPM default value
-      expect(audioManager.currentBpm, equals(128.0));
-      
-      await subscription.cancel();
-    });
 
     test('should handle sound effect enum correctly', () {
       // Test that all sound effects are defined
@@ -107,30 +71,12 @@ void main() {
       expect(SoundEffect.values, contains(SoundEffect.powerUp));
     });
 
-    test('should create beat event with correct properties', () {
-      final timestamp = DateTime.now();
-      const bpm = 128.0;
-      final beatEvent = BeatEvent(timestamp, bpm);
-      
-      expect(beatEvent.timestamp, equals(timestamp));
-      expect(beatEvent.bpm, equals(bpm));
-    });
 
     tearDown(() {
       audioManager.dispose();
     });
   });
 
-  group('BeatEvent Tests', () {
-    test('should create beat event with timestamp and bpm', () {
-      final now = DateTime.now();
-      const bpm = 120.0;
-      final event = BeatEvent(now, bpm);
-      
-      expect(event.timestamp, equals(now));
-      expect(event.bpm, equals(bpm));
-    });
-  });
 
   group('SoundEffect Tests', () {
     test('should have all required sound effects', () {

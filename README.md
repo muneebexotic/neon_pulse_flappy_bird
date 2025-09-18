@@ -1,6 +1,6 @@
 # Neon Pulse Flappy Bird
 
-A cyberpunk-themed Flappy Bird game with stunning neon effects, energy pulse mechanics, and beat-synchronized gameplay built with Flutter and Flame.
+A cyberpunk-themed Flappy Bird game with stunning neon effects and energy pulse mechanics built with Flutter and Flame.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Flutter](https://img.shields.io/badge/Flutter-3.8.1+-blue.svg)
@@ -9,13 +9,12 @@ A cyberpunk-themed Flappy Bird game with stunning neon effects, energy pulse mec
 
 ## 🎮 Game Overview
 
-Neon Pulse reimagines the classic Flappy Bird mechanics within a vibrant cyberpunk universe. Navigate through digital barriers and laser grids while using energy pulses to temporarily disable obstacles. The game features dynamic difficulty scaling, power-ups, customizable bird skins, and beat-synchronized gameplay that responds to the background music.
+Neon Pulse reimagines the classic Flappy Bird mechanics within a vibrant cyberpunk universe. Navigate through digital barriers and laser grids while using energy pulses to temporarily disable obstacles. The game features dynamic difficulty scaling, power-ups, and customizable bird skins.
 
 ### 🌟 Key Features
 
 - **Cyberpunk Aesthetic**: Dark backgrounds with vibrant neon colors (electric blue, hot pink, neon green)
 - **Energy Pulse Mechanic**: Double-tap to emit energy pulses that disable obstacles for 2 seconds
-- **Beat Synchronization**: Obstacles spawn in sync with background music beats
 - **Progressive Difficulty**: Game speed and complexity increase with score
 - **Power-up System**: Shield, Score Multiplier, and Slow Motion power-ups
 - **Bird Customization**: Unlockable skins with unique particle trail effects
@@ -38,8 +37,6 @@ neon_pulse_flappy_bird/
 │   │   │   ├── power_up.dart        # Collectible power-ups
 │   │   │   ├── pulse_effect.dart    # Energy pulse visualization
 │   │   │   ├── cyberpunk_background.dart # Animated background system
-│   │   │   ├── beat_visualizer.dart # Beat sync visual indicators
-│   │   │   └── rhythm_feedback.dart # Beat accuracy feedback
 │   │   ├── effects/                  # Visual effects and rendering
 │   │   │   ├── particle_system.dart # Particle effects engine
 │   │   │   ├── neon_painter.dart    # Custom neon glow effects
@@ -83,9 +80,6 @@ neon_pulse_flappy_bird/
 │   │   │   ├── game_hud.dart        # In-game UI overlay
 │   │   │   ├── pause_overlay.dart   # Pause menu
 │   │   │   ├── achievement_notification.dart # Achievement popups
-│   │   │   ├── visual_metronome.dart # Beat visualization
-│   │   │   ├── beat_prediction_display.dart # Beat timing display
-│   │   │   ├── beat_sync_bonus.dart # Beat sync score bonus
 │   │   │   ├── audio_settings.dart  # Audio controls
 │   │   │   ├── graphics_settings.dart # Graphics quality settings
 │   │   │   ├── accessibility_settings.dart # Audio accessibility options
@@ -277,11 +271,6 @@ dependencies:
 
 ### Audio System
 
-#### Beat Detection
-- Real-time audio analysis for BPM detection
-- Fallback to 128 BPM when detection fails
-- Obstacle spawning synchronized to beats
-- Visual beat indicators for player guidance
 
 #### Sound Effects
 - **Jump**: Bird wing flap sound
@@ -370,7 +359,6 @@ The project includes GitHub Actions workflows for:
 - ✅ Sound effects implemented and working
 - ✅ Background music implemented and working
 - ✅ Audio system with volume controls
-- ✅ Beat detection with fallback
 - ✅ Settings synchronization and proper lifecycle management
 
 ### Audio Features
@@ -408,7 +396,6 @@ See [AUDIO_SETUP.md](AUDIO_SETUP.md) for detailed audio configuration.
 ### Audio Settings
 - **Music Volume**: 0-100% with mute option
 - **Sound Effects Volume**: 0-100% with mute option
-- **Beat Sync**: Enable/disable rhythm gameplay
 - **Haptic Feedback**: Vibration intensity control
 
 ### Gameplay Settings

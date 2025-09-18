@@ -1,7 +1,7 @@
 # Neon Pulse - App Store Description
 
 ## Short Description (80 characters max)
-Cyberpunk Flappy Bird with energy pulses, neon effects & beat sync gameplay!
+Cyberpunk Flappy Bird with energy pulses and stunning neon effects!
 
 ## Full Description
 
@@ -13,7 +13,6 @@ Enter a cyberpunk world where classic tap-to-fly meets cutting-edge innovation! 
 
 🔥 **Energy Pulse Mechanic** - Double-tap to emit powerful energy pulses that temporarily disable obstacles! Master the timing and cooldown system to navigate impossible sections.
 
-🎵 **Beat-Synchronized Gameplay** - Obstacles spawn in rhythm with the cyberpunk soundtrack. Feel the beat and achieve bonus scores for perfect timing!
 
 💫 **Stunning Neon Effects** - Experience breathtaking particle trails that change color based on your performance. Watch explosions of light with every collision and pulse activation.
 
@@ -40,18 +39,17 @@ Enter a cyberpunk world where classic tap-to-fly meets cutting-edge innovation! 
 - Performance optimization for smooth 60fps gaming
 - No ads, no pay-to-win mechanics
 
-Whether you're a Flappy Bird veteran or new to the genre, Neon Pulse offers an experience that's both familiar and revolutionary. The cyberpunk aesthetic isn't just visual flair - it's integrated into every aspect of gameplay, from the pulse mechanics to the beat synchronization.
+Whether you're a Flappy Bird veteran or new to the genre, Neon Pulse offers an experience that's both familiar and revolutionary. The cyberpunk aesthetic isn't just visual flair - it's integrated into every aspect of gameplay, from the pulse mechanics to the strategic obstacle navigation.
 
 Download now and discover why Neon Pulse is the evolution of mobile gaming!
 
 ## Keywords
-flappy bird, cyberpunk, neon, pulse, rhythm, beat sync, particle effects, arcade, casual, indie game, futuristic, energy pulse, power-ups, customization, leaderboard
+flappy bird, cyberpunk, neon, pulse, particle effects, arcade, casual, indie game, futuristic, energy pulse, power-ups, customization, leaderboard
 
 ## What's New (Version 1.0.0)
 🚀 Initial release featuring:
 - Complete cyberpunk Flappy Bird experience
 - Energy pulse mechanic with double-tap controls
-- Beat-synchronized obstacle patterns
 - Stunning neon particle effects
 - Progressive difficulty system
 - Power-up collection system
