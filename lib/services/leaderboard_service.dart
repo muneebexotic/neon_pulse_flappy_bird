@@ -67,6 +67,7 @@ class LeaderboardService {
   static const int _maxLeaderboardSize = 100;
 
   /// Submit a score to the leaderboard
+  /// Replaces existing user entry if new score is better, otherwise adds new entry
   static Future<bool> submitScore({
     required String userId,
     required String playerName,
@@ -88,6 +89,16 @@ class LeaderboardService {
         return false;
       }
 
+      print('Submitting score to Firestore: $score for user: $userId');
+
+      // Check if user already has an entry on the leaderboard
+      final existingUserScores = await FirebaseService.firestore!
+          .collection(_leaderboardCollection)
+          .doc(gameMode)
+          .collection('scores')
+          .where('userId', isEqualTo: userId)
+          .get();
+
       final entry = LeaderboardEntry(
         id: '', // Will be set by Firestore
         userId: userId,
@@ -97,17 +108,62 @@ class LeaderboardService {
         photoURL: photoURL,
       );
 
-      print('Submitting score to Firestore: $score for user: $userId');
+      if (existingUserScores.docs.isNotEmpty) {
+        // User has existing entries - find the best one and replace it if new score is better
+        var bestExistingDoc = existingUserScores.docs.first;
+        final bestExistingData = bestExistingDoc.data() as Map<String, dynamic>;
+        var bestExistingScore = bestExistingData['score'] ?? 0;
+        
+        // Find the actual best score among all user's entries
+        for (final doc in existingUserScores.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final docScore = data['score'] ?? 0;
+          if (docScore > bestExistingScore) {
+            bestExistingDoc = doc;
+            bestExistingScore = docScore;
+          }
+        }
 
-      // Submit to Firestore
-      final docRef = await FirebaseService.firestore!
-          .collection(_leaderboardCollection)
-          .doc(gameMode)
-          .collection('scores')
-          .add(entry.toJson());
+        if (score > bestExistingScore) {
+          // New score is better - replace the best existing entry
+          await bestExistingDoc.reference.update(entry.toJson());
+          print('Updated existing entry with better score: $score (was $bestExistingScore)');
+          
+          // Delete any other entries for this user to ensure only one entry per user
+          for (final doc in existingUserScores.docs) {
+            if (doc.id != bestExistingDoc.id) {
+              await doc.reference.delete();
+              print('Deleted duplicate entry for user: ${doc.id}');
+            }
+          }
+          
+          return true;
+        } else {
+          // New score is not better - don't submit
+          print('Score $score is not better than existing best score $bestExistingScore, not submitting');
+          
+          // Still clean up any duplicate entries for this user
+          if (existingUserScores.docs.length > 1) {
+            // Keep the best entry, delete the rest
+            for (int i = 1; i < existingUserScores.docs.length; i++) {
+              await existingUserScores.docs[i].reference.delete();
+              print('Deleted duplicate entry for user: ${existingUserScores.docs[i].id}');
+            }
+          }
+          
+          return false; // Indicate that score was not submitted
+        }
+      } else {
+        // User has no existing entries - add new entry
+        final docRef = await FirebaseService.firestore!
+            .collection(_leaderboardCollection)
+            .doc(gameMode)
+            .collection('scores')
+            .add(entry.toJson());
 
-      print('Score submitted successfully: $score with ID: ${docRef.id}');
-      return true;
+        print('Added new leaderboard entry: $score with ID: ${docRef.id}');
+        return true;
+      }
     } catch (e) {
       print('Failed to submit score: $e');
       print('Error type: ${e.runtimeType}');
@@ -150,7 +206,7 @@ class LeaderboardService {
         topScores.add(entry);
       }
 
-      // Get user's best score if userId provided
+      // Get user's score if userId provided (should be only one entry per user now)
       LeaderboardEntry? userBestScore;
       if (userId != null) {
         final userScoresQuery = await FirebaseService.firestore!
@@ -158,8 +214,7 @@ class LeaderboardService {
             .doc(gameMode)
             .collection('scores')
             .where('userId', isEqualTo: userId)
-            .orderBy('score', descending: true)
-            .limit(1)
+            .limit(1) // Should only be one entry per user
             .get();
 
         if (userScoresQuery.docs.isNotEmpty) {
@@ -319,32 +374,74 @@ class LeaderboardService {
     }
   }
 
-  /// Clean up old scores to maintain leaderboard size
+  /// Clean up old scores to maintain leaderboard size and ensure one entry per user
   static Future<void> cleanupOldScores({
     String gameMode = _defaultGameMode,
   }) async {
     try {
       if (!FirebaseService.isOnline) return;
 
-      // Get all scores ordered by score descending
+      // Get all scores
       final allScoresQuery = await FirebaseService.firestore!
           .collection(_leaderboardCollection)
           .doc(gameMode)
           .collection('scores')
-          .orderBy('score', descending: true)
           .get();
 
-      // If we have more than the max size, delete the excess
-      if (allScoresQuery.docs.length > _maxLeaderboardSize) {
-        final docsToDelete = allScoresQuery.docs.skip(_maxLeaderboardSize);
-        
-        final batch = FirebaseService.firestore!.batch();
-        for (final doc in docsToDelete) {
-          batch.delete(doc.reference);
+      // Group scores by userId to find duplicates
+      final userScores = <String, List<QueryDocumentSnapshot>>{};
+      for (final doc in allScoresQuery.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final userId = data['userId'] as String? ?? '';
+        if (userId.isNotEmpty) {
+          userScores.putIfAbsent(userId, () => []).add(doc);
         }
-        
+      }
+
+      final batch = FirebaseService.firestore!.batch();
+      int duplicatesDeleted = 0;
+
+      // For each user, keep only their best score
+      for (final userEntries in userScores.values) {
+        if (userEntries.length > 1) {
+          // Sort by score descending to find the best
+          userEntries.sort((a, b) {
+            final dataA = a.data() as Map<String, dynamic>;
+            final dataB = b.data() as Map<String, dynamic>;
+            final scoreA = dataA['score'] as int? ?? 0;
+            final scoreB = dataB['score'] as int? ?? 0;
+            return scoreB.compareTo(scoreA);
+          });
+
+          // Delete all but the best entry
+          for (int i = 1; i < userEntries.length; i++) {
+            batch.delete(userEntries[i].reference);
+            duplicatesDeleted++;
+          }
+        }
+      }
+
+      // After removing duplicates, check if we still need to remove low scores
+      final remainingEntries = userScores.values.map((entries) => entries.first).toList();
+      if (remainingEntries.length > _maxLeaderboardSize) {
+        // Sort by score descending
+        remainingEntries.sort((a, b) {
+          final dataA = a.data() as Map<String, dynamic>;
+          final dataB = b.data() as Map<String, dynamic>;
+          final scoreA = dataA['score'] as int? ?? 0;
+          final scoreB = dataB['score'] as int? ?? 0;
+          return scoreB.compareTo(scoreA);
+        });
+
+        // Delete entries beyond the max size
+        for (int i = _maxLeaderboardSize; i < remainingEntries.length; i++) {
+          batch.delete(remainingEntries[i].reference);
+        }
+      }
+
+      if (duplicatesDeleted > 0 || remainingEntries.length > _maxLeaderboardSize) {
         await batch.commit();
-        print('Cleaned up ${docsToDelete.length} old scores');
+        print('Cleaned up $duplicatesDeleted duplicate entries and maintained max leaderboard size');
       }
     } catch (e) {
       print('Failed to cleanup old scores: $e');

@@ -155,13 +155,6 @@ class LeaderboardIntegrationService {
         return ScoreSubmissionResult.failed;
       }
 
-      // Check if this score is better than user's current best on leaderboard
-      final shouldSubmit = await _shouldSubmitScore(user.uid!, score, gameMode);
-      if (!shouldSubmit) {
-        print('Score $score is not better than user\'s current best on leaderboard, skipping submission');
-        return ScoreSubmissionResult.notBestScore;
-      }
-
       // Check network connectivity
       final connectivityResult = await Connectivity().checkConnectivity();
       final isOnline = connectivityResult == ConnectivityResult.mobile ||
@@ -173,7 +166,7 @@ class LeaderboardIntegrationService {
         return ScoreSubmissionResult.queued;
       }
 
-      // Submit score to leaderboard
+      // Submit score to leaderboard (LeaderboardService will handle best-score logic)
       final success = await LeaderboardService.submitScore(
         userId: user.uid!,
         playerName: user.displayName ?? 'Player',
@@ -186,9 +179,10 @@ class LeaderboardIntegrationService {
         await _updateLastSubmissionTime();
         return ScoreSubmissionResult.success;
       } else {
-        // Queue score if submission failed
-        await _queueScore(user, score, gameSession, gameMode);
-        return ScoreSubmissionResult.queued;
+        // LeaderboardService returned false - could be because score is not better
+        // or because of an error. We'll treat this as notBestScore for now.
+        print('Score $score was not submitted - likely not better than existing score');
+        return ScoreSubmissionResult.notBestScore;
       }
     } catch (e) {
       print('Error submitting score: $e');
@@ -221,20 +215,7 @@ class LeaderboardIntegrationService {
 
       for (final queuedScore in queuedScores) {
         try {
-          // Check if this queued score should still be submitted
-          final shouldSubmit = await _shouldSubmitScore(
-            queuedScore.userId, 
-            queuedScore.score, 
-            queuedScore.gameMode
-          );
-          
-          if (!shouldSubmit) {
-            // Score is no longer the best, skip it but count as processed
-            processedCount++;
-            print('Skipped queued score ${queuedScore.score} - no longer user\'s best');
-            continue;
-          }
-
+          // Submit the queued score (LeaderboardService will handle best-score logic)
           final success = await LeaderboardService.submitScore(
             userId: queuedScore.userId,
             playerName: queuedScore.playerName,
@@ -243,11 +224,14 @@ class LeaderboardIntegrationService {
             gameMode: queuedScore.gameMode,
           );
 
+          // Count as processed regardless of whether it was actually submitted
+          // (LeaderboardService may reject if not better than existing score)
+          processedCount++;
+          
           if (success) {
-            processedCount++;
             print('Processed queued score: ${queuedScore.score}');
           } else {
-            failedScores.add(queuedScore);
+            print('Queued score ${queuedScore.score} was not submitted (likely not better than existing)');
           }
         } catch (e) {
           print('Failed to process queued score: $e');
