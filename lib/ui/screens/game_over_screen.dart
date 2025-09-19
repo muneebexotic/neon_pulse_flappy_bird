@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../game/managers/achievement_manager.dart';
 import '../../services/leaderboard_integration_service.dart';
+import '../../services/connectivity_service.dart';
 import '../../providers/authentication_provider.dart';
+import '../../utils/network_error_handler.dart';
 import '../components/celebration_overlay.dart';
 import '../components/score_submission_dialog.dart';
+import '../components/connectivity_indicator.dart';
 import '../theme/neon_theme.dart';
 import 'leaderboard_screen.dart';
 
@@ -40,6 +43,7 @@ class _GameOverScreenState extends State<GameOverScreen> {
   int? _leaderboardPosition;
   CelebrationLevel? _celebrationLevel;
   bool _showCelebration = false;
+  bool _isOfflineSubmission = false;
 
   @override
   void initState() {
@@ -60,6 +64,7 @@ class _GameOverScreenState extends State<GameOverScreen> {
 
     setState(() {
       _isSubmittingScore = true;
+      _isOfflineSubmission = ConnectivityService.isOffline;
     });
 
     try {
@@ -75,16 +80,16 @@ class _GameOverScreenState extends State<GameOverScreen> {
         sessionId: DateTime.now().millisecondsSinceEpoch.toString(),
       );
 
-      // Submit score
+      // Submit score (will be queued if offline)
       final result = await LeaderboardIntegrationService.submitScore(
         score: widget.finalScore,
         gameSession: gameSession,
         user: authProvider.currentUser,
       );
 
-      // Get leaderboard position if successful
+      // Get leaderboard position if successful and online
       int? position;
-      if (result == ScoreSubmissionResult.success) {
+      if (result == ScoreSubmissionResult.success && ConnectivityService.isOnline) {
         position = await LeaderboardIntegrationService.getUserLeaderboardPosition(
           userId: authProvider.currentUser!.uid!,
           score: widget.finalScore,
@@ -116,12 +121,28 @@ class _GameOverScreenState extends State<GameOverScreen> {
       // Update user statistics
       await authProvider.recordGameResult(widget.finalScore);
 
+      // Show offline notification if score was queued
+      if (_isOfflineSubmission && mounted) {
+        NetworkErrorHandler.showNetworkError(
+          context,
+          customMessage: 'Score saved locally and will be uploaded when you reconnect.',
+        );
+      }
+
     } catch (e) {
       print('Error handling score submission: $e');
       setState(() {
         _isSubmittingScore = false;
         _submissionResult = ScoreSubmissionResult.failed;
       });
+      
+      // Show network error if it's a connectivity issue
+      if (mounted && NetworkErrorHandler.isNetworkError(e)) {
+        NetworkErrorHandler.showNetworkError(
+          context,
+          customMessage: 'Score saved locally due to connection error.',
+        );
+      }
     }
   }
 
@@ -343,12 +364,18 @@ class _GameOverScreenState extends State<GameOverScreen> {
               
               const SizedBox(height: 16),
               
+              // Connectivity indicator
+              const ConnectivityIndicator(
+                showWhenOnline: false,
+                padding: EdgeInsets.symmetric(vertical: 8),
+              ),
+              
               // Tap to restart hint
               Text(
                 'Tap RESTART to play again',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: Colors.white.withOpacity(0.7),
                 ),
               ),
             ],
@@ -428,32 +455,85 @@ class _GameOverScreenState extends State<GameOverScreen> {
 
 
   Widget _buildSubmissionStatus() {
+    String statusText;
+    Color statusColor;
+    IconData statusIcon;
+
+    if (_isSubmittingScore) {
+      if (_isOfflineSubmission) {
+        statusText = 'Saving score locally...';
+        statusColor = Colors.orange;
+        statusIcon = Icons.save;
+      } else {
+        statusText = 'Submitting score...';
+        statusColor = Colors.cyan;
+        statusIcon = Icons.cloud_upload;
+      }
+    } else if (_submissionResult != null) {
+      switch (_submissionResult!) {
+        case ScoreSubmissionResult.success:
+          statusText = ConnectivityService.isOnline ? 'Score submitted!' : 'Score saved locally!';
+          statusColor = Colors.green;
+          statusIcon = ConnectivityService.isOnline ? Icons.cloud_done : Icons.save;
+          break;
+        case ScoreSubmissionResult.queued:
+          statusText = 'Score queued for upload';
+          statusColor = Colors.orange;
+          statusIcon = Icons.schedule;
+          break;
+        case ScoreSubmissionResult.failed:
+        case ScoreSubmissionResult.networkError:
+          statusText = 'Score saved locally';
+          statusColor = Colors.orange;
+          statusIcon = Icons.save;
+          break;
+        default:
+          statusText = 'Score processed';
+          statusColor = Colors.grey;
+          statusIcon = Icons.info;
+      }
+    } else {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.1),
-        border: Border.all(color: Colors.orange, width: 1),
+        color: statusColor.withOpacity(0.1),
+        border: Border.all(color: statusColor, width: 1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.orange,
+          if (_isSubmittingScore)
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: statusColor,
+              ),
+            )
+          else
+            Icon(
+              statusIcon,
+              size: 16,
+              color: statusColor,
             ),
-          ),
           const SizedBox(width: 8),
           Text(
-            'Submitting score...',
+            statusText,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.orange,
+              color: statusColor,
             ),
           ),
+          // Add connectivity badge
+          if (!ConnectivityService.isOnline) ...[
+            const SizedBox(width: 8),
+            const ConnectivityBadge(size: 16),
+          ],
         ],
       ),
     );

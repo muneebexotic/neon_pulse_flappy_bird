@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/authentication_provider.dart';
 import '../services/leaderboard_integration_service.dart';
+import '../services/connectivity_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/main_menu_screen.dart';
 import 'screens/authentication_screen.dart';
@@ -17,19 +18,30 @@ class _NeonPulseFlappyBirdAppState extends State<NeonPulseFlappyBirdApp> {
   @override
   void initState() {
     super.initState();
-    _processQueuedScores();
+    _initializeServices();
   }
 
-  /// Process any queued offline scores when app starts
-  Future<void> _processQueuedScores() async {
+  /// Initialize connectivity service and process queued operations
+  Future<void> _initializeServices() async {
     try {
+      // Initialize connectivity monitoring
+      await ConnectivityService.initialize();
+      print('Connectivity service initialized');
+      
+      // Process any queued offline scores when app starts
       final processedCount = await LeaderboardIntegrationService.processQueuedScores();
       if (processedCount > 0) {
         print('Processed $processedCount queued scores on app startup');
       }
     } catch (e) {
-      print('Error processing queued scores on startup: $e');
+      print('Error initializing services on startup: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    ConnectivityService.dispose();
+    super.dispose();
   }
 
   @override

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_service.dart';
+import 'connectivity_service.dart';
+import 'offline_cache_service.dart';
 
 /// Model for leaderboard entries
 class LeaderboardEntry {
@@ -76,7 +78,7 @@ class LeaderboardService {
     String gameMode = _defaultGameMode,
   }) async {
     try {
-      if (!FirebaseService.isOnline) {
+      if (!ConnectivityService.isOnline) {
         // Queue score for later submission
         await _queueOfflineScore(userId, playerName, score, photoURL, gameMode);
         print('Score queued for offline submission: $score');
@@ -180,7 +182,15 @@ class LeaderboardService {
     String? userId,
   }) async {
     try {
-      if (!FirebaseService.isOnline) {
+      if (!ConnectivityService.isOnline) {
+        // Try to get cached data when offline
+        final cachedData = await OfflineCacheService.getCachedLeaderboardData();
+        if (cachedData != null) {
+          print('Returning cached leaderboard data (offline mode)');
+          return cachedData;
+        }
+        
+        // Return empty data if no cache available
         return LeaderboardData(
           topScores: [],
           userBestScore: null,
@@ -240,14 +250,32 @@ class LeaderboardService {
           .collection('scores')
           .get();
 
-      return LeaderboardData(
+      final leaderboardData = LeaderboardData(
         topScores: topScores,
         userBestScore: userBestScore,
         totalPlayers: totalPlayersQuery.docs.length,
         lastUpdated: DateTime.now(),
       );
+
+      // Cache the data for offline use
+      await OfflineCacheService.cacheLeaderboardData(leaderboardData);
+      
+      // Cache user's best score separately if available
+      if (userBestScore != null) {
+        await OfflineCacheService.cacheUserBestScore(userBestScore);
+      }
+
+      return leaderboardData;
     } catch (e) {
       print('Failed to get leaderboard: $e');
+      
+      // Try to return cached data on error
+      final cachedData = await OfflineCacheService.getCachedLeaderboardData();
+      if (cachedData != null) {
+        print('Returning cached leaderboard data due to error');
+        return cachedData;
+      }
+      
       return LeaderboardData(
         topScores: [],
         userBestScore: null,
@@ -262,8 +290,9 @@ class LeaderboardService {
     String gameMode = _defaultGameMode,
     int limit = 50,
   }) {
-    if (!FirebaseService.isOnline) {
-      return Stream.value([]);
+    if (!ConnectivityService.isOnline) {
+      // Return cached data as a stream when offline
+      return Stream.fromFuture(_getCachedLeaderboardEntries());
     }
 
     return FirebaseService.firestore!
@@ -326,10 +355,21 @@ class LeaderboardService {
     }
   }
 
+  /// Get cached leaderboard entries as a list
+  static Future<List<LeaderboardEntry>> _getCachedLeaderboardEntries() async {
+    try {
+      final cachedData = await OfflineCacheService.getCachedLeaderboardData();
+      return cachedData?.topScores ?? [];
+    } catch (e) {
+      print('Error getting cached leaderboard entries: $e');
+      return [];
+    }
+  }
+
   /// Process queued offline scores
   static Future<void> processOfflineScores() async {
     try {
-      if (!FirebaseService.isOnline) return;
+      if (!ConnectivityService.isOnline) return;
       
       final prefs = await SharedPreferences.getInstance();
       final queuedScoresJson = prefs.getString('queued_leaderboard_scores');
@@ -374,12 +414,29 @@ class LeaderboardService {
     }
   }
 
+  /// Get offline queue statistics
+  static Future<Map<String, int>> getOfflineQueueStats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final queuedScoresJson = prefs.getString('queued_leaderboard_scores') ?? '[]';
+      final queuedScoresList = jsonDecode(queuedScoresJson) as List;
+      
+      return {
+        'queuedScores': queuedScoresList.length,
+        'totalQueuedOperations': await ConnectivityService.getQueuedOperationsCount(),
+      };
+    } catch (e) {
+      print('Error getting offline queue stats: $e');
+      return {'queuedScores': 0, 'totalQueuedOperations': 0};
+    }
+  }
+
   /// Clean up old scores to maintain leaderboard size and ensure one entry per user
   static Future<void> cleanupOldScores({
     String gameMode = _defaultGameMode,
   }) async {
     try {
-      if (!FirebaseService.isOnline) return;
+      if (!ConnectivityService.isOnline) return;
 
       // Get all scores
       final allScoresQuery = await FirebaseService.firestore!

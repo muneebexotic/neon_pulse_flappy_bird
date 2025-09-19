@@ -3,7 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../services/leaderboard_service.dart';
+import '../../services/connectivity_service.dart';
+import '../../services/offline_cache_service.dart';
 import '../../providers/authentication_provider.dart';
+import '../../utils/network_error_handler.dart';
+import '../components/connectivity_indicator.dart';
 import '../utils/animation_config.dart';
 
 class LeaderboardScreen extends StatefulWidget {
@@ -18,6 +22,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   LeaderboardData? _leaderboardData;
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isUsingCachedData = false;
+  int _cacheAgeMinutes = 0;
   late Stream<List<LeaderboardEntry>> _leaderboardStream;
 
   @override
@@ -39,10 +45,28 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       setState(() {
         _isLoading = true;
         _errorMessage = null;
+        _isUsingCachedData = false;
       });
 
       final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
       final userId = authProvider.currentUser?.uid;
+
+      // Check if we're offline and have cached data
+      if (ConnectivityService.isOffline) {
+        final cachedData = await OfflineCacheService.getCachedLeaderboardData();
+        if (cachedData != null) {
+          final cacheAge = await OfflineCacheService.getCacheAgeMinutes();
+          if (mounted) {
+            setState(() {
+              _leaderboardData = cachedData;
+              _isLoading = false;
+              _isUsingCachedData = true;
+              _cacheAgeMinutes = cacheAge;
+            });
+          }
+          return;
+        }
+      }
 
       final leaderboardData = await LeaderboardService.getLeaderboard(
         limit: 100,
@@ -53,12 +77,24 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         setState(() {
           _leaderboardData = leaderboardData;
           _isLoading = false;
+          _isUsingCachedData = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      // Try to load cached data on error
+      final cachedData = await OfflineCacheService.getCachedLeaderboardData();
+      if (cachedData != null && mounted) {
+        final cacheAge = await OfflineCacheService.getCacheAgeMinutes();
         setState(() {
-          _errorMessage = 'Failed to load leaderboard: $e';
+          _leaderboardData = cachedData;
+          _isLoading = false;
+          _isUsingCachedData = true;
+          _cacheAgeMinutes = cacheAge;
+          _errorMessage = 'Using cached data due to connection error';
+        });
+      } else if (mounted) {
+        setState(() {
+          _errorMessage = NetworkErrorHandler.getErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -98,32 +134,83 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back),
-            style: IconButton.styleFrom(
-              foregroundColor: Colors.cyan,
-              side: BorderSide(color: Colors.cyan.withOpacity(0.5)),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              'GLOBAL LEADERBOARD',
-              style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                fontSize: 24,
-                letterSpacing: 2,
+    return Column(
+      children: [
+        // Connectivity banner
+        ConnectivityBanner(
+          onRetry: () async {
+            await ConnectivityService.checkConnectivity();
+            if (ConnectivityService.isOnline) {
+              _loadLeaderboard();
+            }
+          },
+          onSync: () async {
+            await ConnectivityService.syncOfflineData();
+            _loadLeaderboard();
+          },
+        ),
+        
+        // Main header
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_back),
+                style: IconButton.styleFrom(
+                  foregroundColor: Colors.cyan,
+                  side: BorderSide(color: Colors.cyan.withOpacity(0.5)),
+                ),
               ),
-              textAlign: TextAlign.center,
-            ).animate().fadeIn(duration: AnimationConfig.medium.inMilliseconds.ms),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      'GLOBAL LEADERBOARD',
+                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                        fontSize: 24,
+                        letterSpacing: 2,
+                      ),
+                      textAlign: TextAlign.center,
+                    ).animate().fadeIn(duration: AnimationConfig.medium.inMilliseconds.ms),
+                    
+                    // Cache indicator
+                    if (_isUsingCachedData)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Cached data (${_cacheAgeMinutes}m ago)',
+                          style: TextStyle(
+                            color: Colors.orange.withOpacity(0.8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              
+              // Network status and info button
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ConnectivityBadge(size: 24),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () => NetworkErrorHandler.showNetworkInfoBottomSheet(context),
+                    icon: const Icon(Icons.info_outline),
+                    style: IconButton.styleFrom(
+                      foregroundColor: Colors.cyan.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(width: 56), // Balance the back button
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -195,6 +282,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   Widget _buildErrorState({String? error}) {
     final displayError = error ?? _errorMessage ?? 'Unknown error occurred';
+    final isNetworkError = NetworkErrorHandler.isNetworkError(displayError);
     
     return Center(
       child: Padding(
@@ -203,16 +291,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
+              isNetworkError ? Icons.wifi_off : Icons.error_outline,
               size: 64,
-              color: Colors.red.withOpacity(0.8),
+              color: isNetworkError 
+                  ? Colors.orange.withOpacity(0.8)
+                  : Colors.red.withOpacity(0.8),
             ).animate().scale(duration: AnimationConfig.medium.inMilliseconds.ms),
             const SizedBox(height: 24),
             Text(
-              'Failed to Load Leaderboard',
+              isNetworkError ? 'Connection Error' : 'Failed to Load Leaderboard',
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontSize: 20,
-                color: Colors.red.withOpacity(0.9),
+                color: isNetworkError 
+                    ? Colors.orange.withOpacity(0.9)
+                    : Colors.red.withOpacity(0.9),
               ),
               textAlign: TextAlign.center,
             ).animate().fadeIn(delay: AnimationConfig.fast.inMilliseconds.ms),
@@ -223,13 +315,34 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               textAlign: TextAlign.center,
             ).animate().fadeIn(delay: AnimationConfig.medium.inMilliseconds.ms),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _loadLeaderboard,
-              icon: const Icon(Icons.refresh),
-              label: const Text('RETRY'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
+            
+            // Action buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _loadLeaderboard,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('RETRY'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+                if (isNetworkError) ...[
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => NetworkErrorHandler.showNetworkInfoBottomSheet(context),
+                    icon: const Icon(Icons.info_outline),
+                    label: const Text('INFO'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.cyan.withOpacity(0.8),
+                      side: BorderSide(color: Colors.cyan.withOpacity(0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                ],
+              ],
             ).animate().slideY(
               begin: 0.3,
               duration: AnimationConfig.medium.inMilliseconds.ms,
