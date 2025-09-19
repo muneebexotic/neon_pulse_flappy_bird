@@ -324,7 +324,9 @@ class _GameOverScreenState extends State<GameOverScreen> {
                     ),
                   
                   // Score Status Button (show submission dialog)
-                  if (_submissionResult != null && _submissionResult != ScoreSubmissionResult.success)
+                  if (_submissionResult != null && 
+                      _submissionResult != ScoreSubmissionResult.success &&
+                      _submissionResult != ScoreSubmissionResult.notBestScore)
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -470,6 +472,8 @@ class _GameOverScreenState extends State<GameOverScreen> {
         return Colors.orange;
       case ScoreSubmissionResult.notAuthenticated:
         return Colors.blue;
+      case ScoreSubmissionResult.notBestScore:
+        return Colors.grey;
       default:
         return Colors.grey;
     }

@@ -318,6 +318,32 @@ void main() {
         final failedIconWidget = tester.widget<Icon>(find.byIcon(Icons.error));
         expect(failedIconWidget.color, equals(Colors.red));
       });
+
+      testWidgets('should handle notBestScore result correctly', (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ScoreSubmissionDialog(
+                score: 50,
+                result: ScoreSubmissionResult.notBestScore,
+              ),
+            ),
+          ),
+        );
+
+        // Should show the correct title and message
+        expect(find.text('Score Not Submitted'), findsOneWidget);
+        expect(find.text('This score was not submitted because you already have a better score on the leaderboard.'), findsOneWidget);
+        
+        // Should show info icon with grey color
+        final iconWidget = tester.widget<Icon>(find.byIcon(Icons.info));
+        expect(iconWidget.color, equals(Colors.grey));
+        
+        // Should only show close button (no retry or leaderboard buttons)
+        expect(find.text('CLOSE'), findsOneWidget);
+        expect(find.text('RETRY'), findsNothing);
+        expect(find.text('LEADERBOARD'), findsNothing);
+      });
     });
   });
 }

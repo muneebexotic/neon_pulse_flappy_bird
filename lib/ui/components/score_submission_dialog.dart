@@ -435,6 +435,13 @@ class _ScoreSubmissionDialogState extends State<ScoreSubmissionDialog>
           icon: Icons.wifi_off,
           color: Colors.red,
         );
+      case ScoreSubmissionResult.notBestScore:
+        return StatusConfig(
+          title: 'Score Not Submitted',
+          message: 'This score was not submitted because you already have a better score on the leaderboard.',
+          icon: Icons.info,
+          color: Colors.grey,
+        );
     }
   }
 }

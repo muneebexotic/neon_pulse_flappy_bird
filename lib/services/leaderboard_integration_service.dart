@@ -12,6 +12,7 @@ enum ScoreSubmissionResult {
   invalidScore,
   notAuthenticated,
   networkError,
+  notBestScore, // Score was not submitted because it's not better than user's current best
 }
 
 /// Model for queued offline scores
@@ -123,6 +124,7 @@ class LeaderboardIntegrationService {
   static const int _submissionCooldownSeconds = 5; // Prevent spam submissions
   
   /// Submit score with comprehensive validation and anti-cheat measures
+  /// Only submits if the score is better than the user's current best score on the leaderboard
   static Future<ScoreSubmissionResult> submitScore({
     required int score,
     required GameSession gameSession,
@@ -151,6 +153,13 @@ class LeaderboardIntegrationService {
       if (await _isInCooldown()) {
         print('Score submission in cooldown period');
         return ScoreSubmissionResult.failed;
+      }
+
+      // Check if this score is better than user's current best on leaderboard
+      final shouldSubmit = await _shouldSubmitScore(user.uid!, score, gameMode);
+      if (!shouldSubmit) {
+        print('Score $score is not better than user\'s current best on leaderboard, skipping submission');
+        return ScoreSubmissionResult.notBestScore;
       }
 
       // Check network connectivity
@@ -212,6 +221,20 @@ class LeaderboardIntegrationService {
 
       for (final queuedScore in queuedScores) {
         try {
+          // Check if this queued score should still be submitted
+          final shouldSubmit = await _shouldSubmitScore(
+            queuedScore.userId, 
+            queuedScore.score, 
+            queuedScore.gameMode
+          );
+          
+          if (!shouldSubmit) {
+            // Score is no longer the best, skip it but count as processed
+            processedCount++;
+            print('Skipped queued score ${queuedScore.score} - no longer user\'s best');
+            continue;
+          }
+
           final success = await LeaderboardService.submitScore(
             userId: queuedScore.userId,
             playerName: queuedScore.playerName,
@@ -342,6 +365,40 @@ class LeaderboardIntegrationService {
     return score >= 0 && score <= 10000; // Maximum reasonable score
   }
 
+  /// Check if the score should be submitted (only if it's better than current best)
+  static Future<bool> _shouldSubmitScore(String userId, int score, String gameMode) async {
+    try {
+      // Get user's current best score from leaderboard
+      final leaderboardData = await LeaderboardService.getLeaderboard(
+        gameMode: gameMode,
+        limit: 1, // We only need to check if user has any scores
+        userId: userId,
+      );
+
+      // If user has no scores on leaderboard yet, submit this score
+      if (leaderboardData.userBestScore == null) {
+        print('User has no scores on leaderboard, submitting score: $score');
+        return true;
+      }
+
+      // Only submit if new score is better than current best
+      final currentBest = leaderboardData.userBestScore!.score;
+      final shouldSubmit = score > currentBest;
+      
+      if (shouldSubmit) {
+        print('New score $score is better than current best $currentBest, submitting');
+      } else {
+        print('New score $score is not better than current best $currentBest, not submitting');
+      }
+      
+      return shouldSubmit;
+    } catch (e) {
+      print('Error checking if score should be submitted: $e');
+      // If we can't check, err on the side of submitting to avoid losing scores
+      return true;
+    }
+  }
+
   static Future<bool> _isInCooldown() async {
     final prefs = await SharedPreferences.getInstance();
     final lastSubmissionTime = prefs.getInt(_lastSubmissionKey) ?? 0;
@@ -373,7 +430,27 @@ class LeaderboardIntegrationService {
     );
 
     final queuedScores = await _getQueuedScores();
-    queuedScores.add(queuedScore);
+    
+    // Remove any existing queued scores for this user/gameMode that are lower than the new score
+    queuedScores.removeWhere((existingScore) => 
+      existingScore.userId == user.uid! && 
+      existingScore.gameMode == gameMode && 
+      existingScore.score < score
+    );
+    
+    // Only add if this score is better than any existing queued score for this user/gameMode
+    final existingBetter = queuedScores.any((existingScore) => 
+      existingScore.userId == user.uid! && 
+      existingScore.gameMode == gameMode && 
+      existingScore.score >= score
+    );
+    
+    if (!existingBetter) {
+      queuedScores.add(queuedScore);
+      print('Score queued for offline submission: $score');
+    } else {
+      print('Score $score not queued - better score already queued');
+    }
     
     // Keep only the latest 50 queued scores to prevent storage bloat
     if (queuedScores.length > 50) {
@@ -381,7 +458,6 @@ class LeaderboardIntegrationService {
     }
     
     await _saveQueuedScores(queuedScores);
-    print('Score queued for offline submission: $score');
   }
 
   static Future<List<QueuedScore>> _getQueuedScores() async {
