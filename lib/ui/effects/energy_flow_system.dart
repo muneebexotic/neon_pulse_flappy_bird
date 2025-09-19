@@ -5,6 +5,51 @@ import '../../models/progression_path_models.dart';
 import '../../game/effects/particle_system.dart';
 import '../painters/path_renderer.dart';
 
+/// Energy flow particle for path-based effects
+class EnergyFlowParticle {
+  final Vector2 position;
+  final Vector2 velocity;
+  final Color color;
+  final double size;
+  final double alpha;
+  final double life;
+  final double maxLife;
+  final String pathId;
+
+  const EnergyFlowParticle({
+    required this.position,
+    required this.velocity,
+    required this.color,
+    required this.size,
+    required this.alpha,
+    required this.life,
+    required this.maxLife,
+    required this.pathId,
+  });
+
+  /// Create a copy with updated properties
+  EnergyFlowParticle copyWith({
+    Vector2? position,
+    Vector2? velocity,
+    double? alpha,
+    double? life,
+  }) {
+    return EnergyFlowParticle(
+      position: position ?? this.position,
+      velocity: velocity ?? this.velocity,
+      color: color,
+      size: size,
+      alpha: alpha ?? this.alpha,
+      life: life ?? this.life,
+      maxLife: maxLife,
+      pathId: pathId,
+    );
+  }
+
+  /// Check if particle is still alive
+  bool get isAlive => life > 0;
+}
+
 /// System for managing energy flow particles along progression paths
 class EnergyFlowSystem {
   final ParticleSystem _particleSystem;
