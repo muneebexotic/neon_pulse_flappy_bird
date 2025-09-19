@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import '../../models/progression_path_models.dart';
 import '../../game/effects/particle_system.dart';
+import '../../controllers/progression_performance_controller.dart';
 
 /// Custom painter for rendering neon progression paths with glow effects
 class PathRenderer extends CustomPainter {
@@ -13,6 +14,7 @@ class PathRenderer extends CustomPainter {
   final bool enableGlowEffects;
   final double glowIntensity;
   final Color backgroundColor;
+  final ProgressionPerformanceController? performanceController;
   
   // Animation and visual state
   final double scanLinePosition;
@@ -22,6 +24,9 @@ class PathRenderer extends CustomPainter {
   // Performance settings
   final bool enableAntiAliasing;
   final double qualityScale;
+  
+  // Viewport culling
+  Rect? _currentViewport;
 
   PathRenderer({
     required this.pathSegments,
@@ -35,31 +40,49 @@ class PathRenderer extends CustomPainter {
     this.pulsePhase = 0.0,
     this.enableAntiAliasing = true,
     this.qualityScale = 1.0,
+    this.performanceController,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Update viewport for culling
+    _currentViewport = Rect.fromLTWH(0, 0, size.width, size.height);
+    performanceController?.updateViewport(_currentViewport!);
+    
+    // Get optimized render settings
+    final renderSettings = performanceController?.getOptimizedRenderSettings() ?? 
+        PathRenderSettings(
+          enableGlowEffects: enableGlowEffects,
+          glowIntensity: glowIntensity,
+          enableAntiAliasing: enableAntiAliasing,
+          qualityScale: qualityScale,
+          enableBatching: false,
+        );
+
     // Set up canvas for high-quality rendering
-    if (enableAntiAliasing) {
+    if (renderSettings.enableAntiAliasing) {
       canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
     }
 
-    // Draw background grid if needed
-    _drawBackgroundGrid(canvas, size);
-
-    // Draw path segments in order (main path first, then branches)
-    final sortedSegments = _sortSegmentsByPriority();
-    
-    for (final segment in sortedSegments) {
-      _drawPathSegment(canvas, size, segment);
+    // Draw background grid if needed (skip if effects are reduced)
+    if (!(performanceController?.areEffectsReduced ?? false)) {
+      _drawBackgroundGrid(canvas, size, renderSettings);
     }
 
-    // Draw energy flow particles
-    _drawEnergyParticles(canvas, size);
+    // Draw path segments with viewport culling
+    final sortedSegments = _sortSegmentsByPriority();
+    final visibleSegments = _cullSegments(sortedSegments);
+    
+    for (final segment in visibleSegments) {
+      _drawPathSegment(canvas, size, segment, renderSettings);
+    }
+
+    // Draw energy flow particles with culling
+    _drawEnergyParticles(canvas, size, renderSettings);
 
     // Draw scan line reveal effect
-    if (showScanLine) {
-      _drawScanLine(canvas, size);
+    if (showScanLine && renderSettings.enableGlowEffects) {
+      _drawScanLine(canvas, size, renderSettings);
     }
   }
 
@@ -74,10 +97,20 @@ class PathRenderer extends CustomPainter {
     return segments;
   }
 
+  /// Cull segments that are not visible in the current viewport
+  List<PathSegment> _cullSegments(List<PathSegment> segments) {
+    if (performanceController == null || !performanceController!.isViewportCullingEnabled) {
+      return segments;
+    }
+
+    return segments.where((segment) => 
+        performanceController!.isSegmentVisible(segment)).toList();
+  }
+
   /// Draw subtle background grid for cyberpunk atmosphere
-  void _drawBackgroundGrid(Canvas canvas, Size size) {
+  void _drawBackgroundGrid(Canvas canvas, Size size, PathRenderSettings settings) {
     final gridPaint = Paint()
-      ..color = const Color(0xFF1A1A2E).withOpacity(0.3 * qualityScale)
+      ..color = const Color(0xFF1A1A2E).withOpacity(0.3 * settings.qualityScale)
       ..strokeWidth = 0.5
       ..style = PaintingStyle.stroke;
 
@@ -103,23 +136,25 @@ class PathRenderer extends CustomPainter {
   }
 
   /// Draw a single path segment with neon effects
-  void _drawPathSegment(Canvas canvas, Size size, PathSegment segment) {
+  void _drawPathSegment(Canvas canvas, Size size, PathSegment segment, PathRenderSettings settings) {
     if (segment.pathPoints.length < 2) return;
 
     final path = _createPathFromPoints(segment.pathPoints);
     final completedPath = _createCompletedPath(segment);
     
     // Draw base path (dim)
-    _drawBasePath(canvas, path, segment);
+    _drawBasePath(canvas, path, segment, settings);
     
     // Draw completed portion with full glow
     if (segment.completionPercentage > 0) {
-      _drawCompletedPath(canvas, completedPath, segment);
+      _drawCompletedPath(canvas, completedPath, segment, settings);
     }
     
-    // Draw pulsing animation on active segments
-    if (segment.completionPercentage > 0 && segment.completionPercentage < 1.0) {
-      _drawPulsingEffect(canvas, completedPath, segment);
+    // Draw pulsing animation on active segments (skip if effects reduced)
+    if (segment.completionPercentage > 0 && 
+        segment.completionPercentage < 1.0 && 
+        settings.enableGlowEffects) {
+      _drawPulsingEffect(canvas, completedPath, segment, settings);
     }
   }
 
@@ -199,13 +234,13 @@ class PathRenderer extends CustomPainter {
   }
 
   /// Draw base path with dim appearance
-  void _drawBasePath(Canvas canvas, Path path, PathSegment segment) {
-    final baseColor = segment.neonColor.withOpacity(0.2 * qualityScale);
+  void _drawBasePath(Canvas canvas, Path path, PathSegment segment, PathRenderSettings settings) {
+    final baseColor = segment.neonColor.withOpacity(0.2 * settings.qualityScale);
     
     // Draw path stroke
     final strokePaint = Paint()
       ..color = baseColor
-      ..strokeWidth = segment.width * qualityScale
+      ..strokeWidth = segment.width * settings.qualityScale
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -213,32 +248,32 @@ class PathRenderer extends CustomPainter {
     canvas.drawPath(path, strokePaint);
     
     // Add subtle glow if enabled
-    if (enableGlowEffects && qualityScale > 0.5) {
+    if (settings.enableGlowEffects && settings.qualityScale > 0.5) {
       final glowPaint = Paint()
-        ..color = baseColor.withOpacity(0.1 * glowIntensity)
-        ..strokeWidth = segment.width * 3 * qualityScale
+        ..color = baseColor.withOpacity(0.1 * settings.glowIntensity)
+        ..strokeWidth = segment.width * 3 * settings.qualityScale
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..maskFilter = MaskFilter.blur(BlurStyle.outer, segment.width * qualityScale);
+        ..maskFilter = MaskFilter.blur(BlurStyle.outer, segment.width * settings.qualityScale);
 
       canvas.drawPath(path, glowPaint);
     }
   }
 
   /// Draw completed path with full neon glow
-  void _drawCompletedPath(Canvas canvas, Path path, PathSegment segment) {
+  void _drawCompletedPath(Canvas canvas, Path path, PathSegment segment, PathRenderSettings settings) {
     final neonColor = segment.neonColor;
     
     // Draw multiple glow layers for intense neon effect
-    if (enableGlowEffects) {
-      _drawNeonGlowLayers(canvas, path, segment, neonColor);
+    if (settings.enableGlowEffects) {
+      _drawNeonGlowLayers(canvas, path, segment, neonColor, settings);
     }
     
     // Draw core path
     final corePaint = Paint()
       ..color = neonColor
-      ..strokeWidth = segment.width * qualityScale
+      ..strokeWidth = segment.width * settings.qualityScale
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -247,7 +282,10 @@ class PathRenderer extends CustomPainter {
   }
 
   /// Draw multiple glow layers for neon effect
-  void _drawNeonGlowLayers(Canvas canvas, Path path, PathSegment segment, Color neonColor) {
+  void _drawNeonGlowLayers(Canvas canvas, Path path, PathSegment segment, Color neonColor, PathRenderSettings settings) {
+    // Reduce glow layers for better performance on lower quality settings
+    final layerCount = settings.qualityScale > 0.7 ? 3 : (settings.qualityScale > 0.4 ? 2 : 1);
+    
     final glowLayers = [
       // Outer glow
       (width: segment.width * 8, opacity: 0.1, blur: segment.width * 2),
@@ -255,61 +293,81 @@ class PathRenderer extends CustomPainter {
       (width: segment.width * 4, opacity: 0.2, blur: segment.width * 1.5),
       // Inner glow
       (width: segment.width * 2, opacity: 0.3, blur: segment.width),
-    ];
+    ].take(layerCount).toList();
 
     for (final layer in glowLayers) {
       final glowPaint = Paint()
-        ..color = neonColor.withOpacity(layer.opacity * glowIntensity * qualityScale)
-        ..strokeWidth = layer.width * qualityScale
+        ..color = neonColor.withOpacity(layer.opacity * settings.glowIntensity * settings.qualityScale)
+        ..strokeWidth = layer.width * settings.qualityScale
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..maskFilter = MaskFilter.blur(BlurStyle.outer, layer.blur * qualityScale);
+        ..maskFilter = MaskFilter.blur(BlurStyle.outer, layer.blur * settings.qualityScale);
 
       canvas.drawPath(path, glowPaint);
     }
   }
 
   /// Draw pulsing effect on active path segments
-  void _drawPulsingEffect(Canvas canvas, Path path, PathSegment segment) {
-    if (!enableGlowEffects || qualityScale < 0.5) return;
+  void _drawPulsingEffect(Canvas canvas, Path path, PathSegment segment, PathRenderSettings settings) {
+    if (!settings.enableGlowEffects || settings.qualityScale < 0.5) return;
 
     final pulseIntensity = (math.sin(pulsePhase * 2 * math.pi) * 0.5 + 0.5);
-    final pulseColor = segment.neonColor.withOpacity(0.4 * pulseIntensity * glowIntensity);
+    final pulseColor = segment.neonColor.withOpacity(0.4 * pulseIntensity * settings.glowIntensity);
     
     final pulsePaint = Paint()
       ..color = pulseColor
-      ..strokeWidth = segment.width * 3 * qualityScale
+      ..strokeWidth = segment.width * 3 * settings.qualityScale
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..maskFilter = MaskFilter.blur(BlurStyle.outer, segment.width * 1.5 * qualityScale);
+      ..maskFilter = MaskFilter.blur(BlurStyle.outer, segment.width * 1.5 * settings.qualityScale);
 
     canvas.drawPath(path, pulsePaint);
   }
 
   /// Draw energy flow particles along completed paths
-  void _drawEnergyParticles(Canvas canvas, Size size) {
-    if (!enableGlowEffects || energyParticles.isEmpty) return;
+  void _drawEnergyParticles(Canvas canvas, Size size, PathRenderSettings settings) {
+    if (!settings.enableGlowEffects || energyParticles.isEmpty) return;
 
-    for (final particle in energyParticles) {
-      _drawEnergyParticle(canvas, particle);
+    // Cull particles outside viewport for performance
+    final visibleParticles = _cullParticles(energyParticles);
+
+    for (final particle in visibleParticles) {
+      _drawEnergyParticle(canvas, particle, settings);
     }
   }
 
-  /// Draw individual energy particle
-  void _drawEnergyParticle(Canvas canvas, EnergyFlowParticle particle) {
-    final position = Offset(particle.position.x, particle.position.y);
-    final size = particle.size * qualityScale;
-    final alpha = particle.alpha * qualityScale;
-    
-    // Draw particle glow
-    final glowPaint = Paint()
-      ..color = particle.color.withOpacity(alpha * 0.3)
-      ..style = PaintingStyle.fill
-      ..maskFilter = MaskFilter.blur(BlurStyle.outer, size * 2);
+  /// Cull particles that are not visible in the current viewport
+  List<EnergyFlowParticle> _cullParticles(List<EnergyFlowParticle> particles) {
+    if (_currentViewport == null || 
+        performanceController == null || 
+        !performanceController!.isViewportCullingEnabled) {
+      return particles;
+    }
 
-    canvas.drawCircle(position, size * 2, glowPaint);
+    final buffer = 50.0; // Buffer around viewport
+    final expandedViewport = _currentViewport!.inflate(buffer);
+
+    return particles.where((particle) => 
+        expandedViewport.contains(Offset(particle.position.x, particle.position.y))).toList();
+  }
+
+  /// Draw individual energy particle
+  void _drawEnergyParticle(Canvas canvas, EnergyFlowParticle particle, PathRenderSettings settings) {
+    final position = Offset(particle.position.x, particle.position.y);
+    final size = particle.size * settings.qualityScale;
+    final alpha = particle.alpha * settings.qualityScale;
+    
+    // Draw particle glow (skip if effects reduced)
+    if (settings.enableGlowEffects) {
+      final glowPaint = Paint()
+        ..color = particle.color.withOpacity(alpha * 0.3)
+        ..style = PaintingStyle.fill
+        ..maskFilter = MaskFilter.blur(BlurStyle.outer, size * 2);
+
+      canvas.drawCircle(position, size * 2, glowPaint);
+    }
     
     // Draw particle core
     final corePaint = Paint()
@@ -318,15 +376,15 @@ class PathRenderer extends CustomPainter {
 
     canvas.drawCircle(position, size, corePaint);
     
-    // Draw particle trail if moving fast
-    if (particle.velocity.length > 50.0) {
-      _drawParticleTrail(canvas, particle);
+    // Draw particle trail if moving fast and effects enabled
+    if (particle.velocity.length > 50.0 && settings.enableGlowEffects) {
+      _drawParticleTrail(canvas, particle, settings);
     }
   }
 
   /// Draw trail behind fast-moving particles
-  void _drawParticleTrail(Canvas canvas, EnergyFlowParticle particle) {
-    final trailLength = math.min(particle.velocity.length * 0.1, 20.0);
+  void _drawParticleTrail(Canvas canvas, EnergyFlowParticle particle, PathRenderSettings settings) {
+    final trailLength = math.min(particle.velocity.length * 0.1, 20.0 * settings.qualityScale);
     final trailDirection = particle.velocity.normalized() * -trailLength;
     
     final trailStart = particle.position;
@@ -337,11 +395,11 @@ class PathRenderer extends CustomPainter {
         Offset(trailStart.x, trailStart.y),
         Offset(trailEnd.x, trailEnd.y),
         [
-          particle.color.withOpacity(particle.alpha * 0.8),
+          particle.color.withOpacity(particle.alpha * 0.8 * settings.qualityScale),
           particle.color.withOpacity(0.0),
         ],
       )
-      ..strokeWidth = particle.size * 0.5
+      ..strokeWidth = particle.size * 0.5 * settings.qualityScale
       ..strokeCap = StrokeCap.round;
 
     canvas.drawLine(
@@ -352,15 +410,15 @@ class PathRenderer extends CustomPainter {
   }
 
   /// Draw scan line reveal effect
-  void _drawScanLine(Canvas canvas, Size size) {
-    if (!enableGlowEffects) return;
+  void _drawScanLine(Canvas canvas, Size size, PathRenderSettings settings) {
+    if (!settings.enableGlowEffects) return;
 
     final scanY = size.height * scanLinePosition;
     
     // Draw scan line
     final scanPaint = Paint()
-      ..color = const Color(0xFF00FFFF).withOpacity(0.8 * qualityScale)
-      ..strokeWidth = 2.0 * qualityScale
+      ..color = const Color(0xFF00FFFF).withOpacity(0.8 * settings.qualityScale)
+      ..strokeWidth = 2.0 * settings.qualityScale
       ..style = PaintingStyle.stroke;
 
     canvas.drawLine(
@@ -371,10 +429,10 @@ class PathRenderer extends CustomPainter {
     
     // Draw scan line glow
     final glowPaint = Paint()
-      ..color = const Color(0xFF00FFFF).withOpacity(0.3 * qualityScale)
-      ..strokeWidth = 8.0 * qualityScale
+      ..color = const Color(0xFF00FFFF).withOpacity(0.3 * settings.qualityScale)
+      ..strokeWidth = 8.0 * settings.qualityScale
       ..style = PaintingStyle.stroke
-      ..maskFilter = MaskFilter.blur(BlurStyle.outer, 4.0 * qualityScale);
+      ..maskFilter = MaskFilter.blur(BlurStyle.outer, 4.0 * settings.qualityScale);
 
     canvas.drawLine(
       Offset(0, scanY),

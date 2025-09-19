@@ -14,6 +14,7 @@ import '../../controllers/progression_integration_controller.dart';
 import '../../controllers/progression_path_controller.dart';
 import '../../controllers/progression_scroll_controller.dart';
 import '../../controllers/scan_line_animation_controller.dart';
+import '../../controllers/progression_performance_controller.dart';
 import '../painters/path_renderer.dart';
 import '../widgets/achievement_node.dart';
 import '../components/achievement_detail_overlay.dart';
@@ -44,6 +45,7 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
   late ProgressionIntegrationController _integrationController;
   late ProgressionScrollController _scrollController;
   late ScanLineAnimationController _scanLineController;
+  late ProgressionPerformanceController _performanceController;
   
   // Background and effects
   late GameWidget<FlameGame> _backgroundWidget;
@@ -76,6 +78,7 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
   @override
   void dispose() {
     _performanceTimer?.cancel();
+    _performanceController.dispose();
     _integrationController.dispose();
     _scrollController.dispose();
     _scanLineController.dispose();
@@ -86,6 +89,9 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
   /// Initialize all components and controllers
   void _initializeComponents() {
     try {
+      // Initialize performance controller first
+      _performanceController = ProgressionPerformanceController();
+      
       // Initialize core controllers
       final pathController = ProgressionPathController();
       _integrationController = ProgressionIntegrationController(
@@ -98,6 +104,9 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
       
       // Initialize background game
       _initializeBackgroundGame();
+      
+      // Setup performance monitoring
+      _setupPerformanceMonitoring();
       
       // Setup scroll callbacks
       _setupScrollCallbacks();
@@ -126,6 +135,40 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
     
     _backgroundGame.add(_cyberpunkBackground);
     _backgroundWidget = GameWidget(game: _backgroundGame);
+  }
+
+  /// Setup performance monitoring and optimization
+  void _setupPerformanceMonitoring() {
+    // Register for quality change callbacks
+    _performanceController.onParticleQualityChanged((quality) {
+      // Update particle system quality
+      if (_particleSystem != null) {
+        _particleSystem.setQualityScale(_performanceController.currentQualityScale);
+      }
+    });
+    
+    _performanceController.onGraphicsQualityChanged((quality) {
+      // Update graphics quality settings
+      setState(() {
+        _currentQualityScale = _performanceController.currentQualityScale;
+      });
+    });
+    
+    _performanceController.onEffectsChanged((reduced) {
+      // Update effects settings
+      if (_particleSystem != null) {
+        _particleSystem.setCelebrationEffectsEnabled(!reduced);
+        _particleSystem.setPulseEffectsEnabled(!reduced);
+      }
+    });
+    
+    // Start performance monitoring
+    _performanceTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
+      final now = DateTime.now();
+      final frameTime = now.difference(_lastFrameTime).inMicroseconds / 1000.0;
+      _performanceController.recordFrame(frameTime);
+      _lastFrameTime = now;
+    });
   }
 
   /// Setup scroll controller callbacks
@@ -158,10 +201,15 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
         _screenSize = MediaQuery.of(context).size;
       }
       
-      // Initialize particle system
+      // Initialize performance controller
+      await _performanceController.initialize();
+      _performanceController.startOptimization();
+      
+      // Initialize particle system with performance controller
       final baseParticleSystem = ParticleSystem();
       _particleSystem = ProgressionParticleSystem(
         baseParticleSystem: baseParticleSystem,
+        performanceController: _performanceController,
       );
       
       // Initialize integration controller
@@ -170,7 +218,7 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
       // Initialize scan line controller
       _scanLineController.initialize(this);
       
-      // Set initial quality based on adaptive quality manager
+      // Set initial quality based on performance controller
       _updateQualitySettings();
       
       // Start performance monitoring
@@ -192,11 +240,10 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
     }
   }
 
-  /// Update quality settings based on adaptive quality manager
+  /// Update quality settings based on performance controller
   void _updateQualitySettings() {
-    if (widget.adaptiveQualityManager != null) {
-      final particleQuality = widget.adaptiveQualityManager!.currentParticleQuality;
-      _currentQualityScale = _getQualityScale(particleQuality);
+    _currentQualityScale = _performanceController.currentQualityScale;
+    if (_particleSystem != null) {
       _particleSystem.setQualityScale(_currentQualityScale);
     }
   }
@@ -418,56 +465,80 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
         final nodePositions = _integrationController.pathController.nodePositions;
         final pathSegments = _integrationController.pathController.pathSegments;
         
-        return CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            // Main progression path canvas
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: _calculateContentHeight(achievements, nodePositions),
-                child: Stack(
-                  children: [
-                    // Path renderer
-                    CustomPaint(
-                      size: Size.infinite,
-                      painter: PathRenderer(
-                        pathSegments: pathSegments,
-                        energyParticles: _getEnergyParticles(),
-                        animationProgress: 1.0,
-                        enableGlowEffects: true,
-                        glowIntensity: _currentQualityScale,
-                        qualityScale: _currentQualityScale,
-                      ),
-                    ),
-                    
-                    // Achievement nodes
-                    ...achievements.map<Widget>((achievement) {
-                      final nodePosition = nodePositions[achievement.id];
-                      if (nodePosition == null) return const SizedBox.shrink();
-                      
-                      return Positioned(
-                        left: nodePosition.position.x - 22, // Center the 44dp node
-                        top: nodePosition.position.y - 22,
-                        child: AchievementNode(
-                          achievement: achievement,
-                          visualState: nodePosition.visualState,
-                          onTap: () => _handleNodeTap(achievement),
-                          size: 44.0,
-                          enableAnimations: _currentQualityScale > 0.5,
+        return NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            // Update viewport for culling
+            if (notification is ScrollUpdateNotification) {
+              final renderBox = context.findRenderObject() as RenderBox?;
+              if (renderBox != null) {
+                final viewport = Rect.fromLTWH(
+                  0,
+                  notification.metrics.pixels,
+                  renderBox.size.width,
+                  renderBox.size.height,
+                );
+                _performanceController.updateViewport(viewport);
+              }
+            }
+            return false;
+          },
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              // Main progression path canvas
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: _calculateContentHeight(achievements, nodePositions),
+                  child: Stack(
+                    children: [
+                      // Path renderer with performance optimization
+                      CustomPaint(
+                        size: Size.infinite,
+                        painter: PathRenderer(
+                          pathSegments: pathSegments,
+                          energyParticles: _getEnergyParticles(),
+                          animationProgress: 1.0,
+                          enableGlowEffects: !_performanceController.areEffectsReduced,
+                          glowIntensity: _currentQualityScale,
+                          qualityScale: _currentQualityScale,
+                          performanceController: _performanceController,
                         ),
-                      );
-                    }),
-                    
-                    // Particle system overlay
-                    CustomPaint(
-                      size: Size.infinite,
-                      painter: _ParticleSystemPainter(_particleSystem),
-                    ),
-                  ],
+                      ),
+                      
+                      // Achievement nodes with viewport culling
+                      ...achievements.map<Widget>((achievement) {
+                        final nodePosition = nodePositions[achievement.id];
+                        if (nodePosition == null) return const SizedBox.shrink();
+                        
+                        // Check if node is visible before rendering
+                        if (!_performanceController.isNodeVisible(nodePosition)) {
+                          return const SizedBox.shrink();
+                        }
+                        
+                        return Positioned(
+                          left: nodePosition.position.x - 22, // Center the 44dp node
+                          top: nodePosition.position.y - 22,
+                          child: AchievementNode(
+                            achievement: achievement,
+                            visualState: nodePosition.visualState,
+                            onTap: () => _handleNodeTap(achievement),
+                            size: 44.0,
+                            enableAnimations: _currentQualityScale > 0.5,
+                          ),
+                        );
+                      }),
+                      
+                      // Particle system overlay
+                      CustomPaint(
+                        size: Size.infinite,
+                        painter: _ParticleSystemPainter(_particleSystem),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

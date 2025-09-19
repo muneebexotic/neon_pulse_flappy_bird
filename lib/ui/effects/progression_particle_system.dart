@@ -2,47 +2,129 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../../game/effects/particle_system.dart';
+import '../../game/utils/performance_monitor.dart';
 import '../../models/progression_path_models.dart';
+import '../../controllers/progression_performance_controller.dart';
 import 'energy_flow_system.dart';
 
 /// Enhanced particle system specifically for progression path effects
 class ProgressionParticleSystem {
   final ParticleSystem _baseParticleSystem;
   final EnergyFlowSystem _energyFlowSystem;
+  final ProgressionPerformanceController _performanceController;
   
   // Celebration effects
   final List<ConfettiParticle> _confettiParticles = [];
   final List<PulseParticle> _pulseParticles = [];
   
   // Configuration
-  final int maxConfettiParticles;
-  final int maxPulseParticles;
+  int maxConfettiParticles;
+  int maxPulseParticles;
   final double celebrationDuration;
   
   // Performance tracking
   double _qualityScale = 1.0;
   bool _enableCelebrationEffects = true;
   bool _enablePulseEffects = true;
+  
+  // Object pooling for performance
+  final List<ConfettiParticle> _confettiPool = [];
+  final List<PulseParticle> _pulsePool = [];
+  static const int _maxPoolSize = 50;
 
   ProgressionParticleSystem({
     required ParticleSystem baseParticleSystem,
+    ProgressionPerformanceController? performanceController,
     this.maxConfettiParticles = 100,
     this.maxPulseParticles = 20,
     this.celebrationDuration = 5.0,
   }) : _baseParticleSystem = baseParticleSystem,
-       _energyFlowSystem = EnergyFlowSystem(particleSystem: baseParticleSystem);
+       _energyFlowSystem = EnergyFlowSystem(particleSystem: baseParticleSystem),
+       _performanceController = performanceController ?? ProgressionPerformanceController() {
+    
+    // Register for performance updates
+    _performanceController.onParticleQualityChanged(_onParticleQualityChanged);
+    _performanceController.onEffectsChanged(_onEffectsChanged);
+    _performanceController.onQualityScaleChanged(_onQualityScaleChanged);
+  }
 
   /// Update all progression particle effects
   void update(double dt, List<PathSegment> pathSegments) {
+    // Record frame performance
+    final frameStart = DateTime.now();
+    
     // Update energy flow system
     _energyFlowSystem.update(dt, pathSegments);
     
-    // Update celebration particles
+    // Update celebration particles with viewport culling
     _updateConfettiParticles(dt);
     _updatePulseParticles(dt);
     
-    // Clean up dead particles
+    // Clean up dead particles and return to pools
     _cleanupDeadParticles();
+    
+    // Record frame time for performance monitoring
+    final frameTime = DateTime.now().difference(frameStart).inMicroseconds / 1000.0;
+    _performanceController.recordFrame(frameTime);
+  }
+
+  /// Handle particle quality changes from performance controller
+  void _onParticleQualityChanged(QualityLevel quality) {
+    switch (quality) {
+      case QualityLevel.low:
+        maxConfettiParticles = 30;
+        maxPulseParticles = 8;
+        break;
+      case QualityLevel.medium:
+        maxConfettiParticles = 60;
+        maxPulseParticles = 15;
+        break;
+      case QualityLevel.high:
+        maxConfettiParticles = 100;
+        maxPulseParticles = 20;
+        break;
+      case QualityLevel.ultra:
+        maxConfettiParticles = 150;
+        maxPulseParticles = 30;
+        break;
+    }
+    
+    // Trim existing particles if needed
+    _trimParticlesToLimit();
+  }
+
+  /// Handle effects changes from performance controller
+  void _onEffectsChanged(bool reduced) {
+    _enableCelebrationEffects = !reduced;
+    _enablePulseEffects = !reduced;
+    
+    if (reduced) {
+      // Clear expensive effects
+      _returnConfettiToPool(_confettiParticles);
+      _confettiParticles.clear();
+    }
+  }
+
+  /// Handle quality scale changes from performance controller
+  void _onQualityScaleChanged(double scale) {
+    _qualityScale = scale;
+    _energyFlowSystem.setQualityScale(scale);
+    _baseParticleSystem.setQuality(scale);
+  }
+
+  /// Trim particles to current limits
+  void _trimParticlesToLimit() {
+    // Trim confetti particles
+    while (_confettiParticles.length > maxConfettiParticles) {
+      final particle = _confettiParticles.removeLast();
+      _returnConfettiToPool([particle]);
+    }
+    
+    // Trim pulse particles
+    while (_pulseParticles.length > maxPulseParticles) {
+      final particle = _pulseParticles.removeLast();
+      _returnPulseToPool([particle]);
+    }
   }
 
   /// Update confetti particles
@@ -124,10 +206,110 @@ class ProgressionParticleSystem {
     );
   }
 
-  /// Clean up dead particles
+  /// Clean up dead particles and return to pools
   void _cleanupDeadParticles() {
-    _confettiParticles.removeWhere((particle) => !particle.isAlive);
-    _pulseParticles.removeWhere((particle) => !particle.isAlive);
+    // Clean up confetti particles
+    final deadConfetti = _confettiParticles.where((p) => !p.isAlive).toList();
+    _confettiParticles.removeWhere((p) => !p.isAlive);
+    _returnConfettiToPool(deadConfetti);
+    
+    // Clean up pulse particles
+    final deadPulse = _pulseParticles.where((p) => !p.isAlive).toList();
+    _pulseParticles.removeWhere((p) => !p.isAlive);
+    _returnPulseToPool(deadPulse);
+  }
+
+  /// Get confetti particle from pool or create new one
+  ConfettiParticle _getConfettiFromPool({
+    required Vector2 position,
+    required Vector2 velocity,
+    required Color color,
+    required double size,
+    required double rotation,
+    required double rotationSpeed,
+    required double life,
+    required ConfettiShape shape,
+  }) {
+    if (_confettiPool.isNotEmpty) {
+      // Reuse existing particle
+      final particle = _confettiPool.removeLast();
+      return ConfettiParticle(
+        position: position,
+        velocity: velocity,
+        color: color,
+        size: size,
+        rotation: rotation,
+        rotationSpeed: rotationSpeed,
+        alpha: 1.0,
+        life: life,
+        maxLife: life,
+        shape: shape,
+      );
+    } else {
+      // Create new particle
+      return ConfettiParticle(
+        position: position,
+        velocity: velocity,
+        color: color,
+        size: size,
+        rotation: rotation,
+        rotationSpeed: rotationSpeed,
+        alpha: 1.0,
+        life: life,
+        maxLife: life,
+        shape: shape,
+      );
+    }
+  }
+
+  /// Get pulse particle from pool or create new one
+  PulseParticle _getPulseFromPool({
+    required Vector2 position,
+    required double baseSize,
+    required Color color,
+    required double life,
+    double delay = 0.0,
+  }) {
+    if (_pulsePool.isNotEmpty) {
+      // Reuse existing particle
+      final particle = _pulsePool.removeLast();
+      return PulseParticle(
+        position: position,
+        baseSize: baseSize,
+        color: color,
+        life: life,
+        maxLife: life,
+        delay: delay,
+      );
+    } else {
+      // Create new particle
+      return PulseParticle(
+        position: position,
+        baseSize: baseSize,
+        color: color,
+        life: life,
+        maxLife: life,
+        delay: delay,
+      );
+    }
+  }
+
+  /// Return confetti particles to pool
+  void _returnConfettiToPool(List<ConfettiParticle> particles) {
+    for (final particle in particles) {
+      if (_confettiPool.length < _maxPoolSize) {
+        _confettiPool.add(particle);
+      }
+    }
+  }
+
+  /// Return pulse particles to pool
+  void _returnPulseToPool(List<PulseParticle> particles) {
+    for (final particle in particles) {
+      if (_pulsePool.length < _maxPoolSize) {
+        _pulsePool.add(particle);
+      }
+    }
   }
 
   /// Add node unlock explosion effect
@@ -178,12 +360,11 @@ class ProgressionParticleSystem {
       final delay = i * 0.2; // Stagger the rings
       final baseSize = 20.0 + (i * 10.0);
       
-      final pulseParticle = PulseParticle(
+      final pulseParticle = _getPulseFromPool(
         position: position.clone(),
         baseSize: baseSize * _qualityScale,
         color: color.withOpacity(0.6),
         life: 1.5 + delay,
-        maxLife: 1.5 + delay,
         delay: delay,
       );
       
@@ -210,12 +391,11 @@ class ProgressionParticleSystem {
       final progress = i / pulseCount * segment.completionPercentage;
       final position = segment.getPointAtPercentage(progress);
       
-      final pulseParticle = PulseParticle(
+      final pulseParticle = _getPulseFromPool(
         position: position,
         baseSize: 15.0 * _qualityScale,
         color: segment.neonColor.withOpacity(0.7),
         life: 1.0,
-        maxLife: 1.0,
         delay: i * 0.1,
       );
       
@@ -263,16 +443,14 @@ class ProgressionParticleSystem {
       final rotationSpeed = (math.Random().nextDouble() - 0.5) * 10.0;
       final life = celebrationDuration + math.Random().nextDouble() * 2.0;
       
-      final confetti = ConfettiParticle(
+      final confetti = _getConfettiFromPool(
         position: Vector2(spawnX, spawnY),
         velocity: velocity,
         color: color,
         size: size * _qualityScale,
         rotation: math.Random().nextDouble() * 2 * math.pi,
         rotationSpeed: rotationSpeed,
-        alpha: 1.0,
         life: life,
-        maxLife: life,
         shape: math.Random().nextBool() ? ConfettiShape.rectangle : ConfettiShape.circle,
       );
       
