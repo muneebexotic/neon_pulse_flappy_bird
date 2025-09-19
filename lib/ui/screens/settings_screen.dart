@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../components/audio_settings.dart';
 import '../components/graphics_settings.dart';
 import '../components/difficulty_settings.dart';
@@ -10,6 +11,7 @@ import '../../game/managers/settings_manager.dart';
 import '../../game/managers/accessibility_manager.dart';
 import '../../game/managers/haptic_manager.dart';
 import '../../game/utils/performance_monitor.dart';
+import '../../providers/authentication_provider.dart';
 
 /// Enhanced settings screen with comprehensive game settings
 class SettingsScreen extends StatefulWidget {
@@ -44,7 +46,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _settingsManager = widget.settingsManager ?? SettingsManager();
     _performanceMonitor = widget.performanceMonitor ?? PerformanceMonitor();
     _accessibilityManager = widget.accessibilityManager ?? AccessibilityManager();
@@ -101,6 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                     _buildControlsTab(),
                     _buildAudioTab(),
                     _buildAccessibilityTab(),
+                    _buildAccountTab(),
                   ],
                 ),
               ),
@@ -182,6 +185,10 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
           Tab(
             icon: Icon(Icons.accessibility, size: 20),
             text: 'Accessibility',
+          ),
+          Tab(
+            icon: Icon(Icons.account_circle, size: 20),
+            text: 'Account',
           ),
         ],
       ),
@@ -347,5 +354,402 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
     );
   }
 
+  Widget _buildAccountTab() {
+    return Consumer<AuthenticationProvider>(
+      builder: (context, authProvider, child) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Account Info Section
+              _buildAccountInfoSection(authProvider),
+              
+              const SizedBox(height: 30),
+              
+              // Account Actions Section
+              _buildAccountActionsSection(authProvider),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
+  Widget _buildAccountInfoSection(AuthenticationProvider authProvider) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: NeonTheme.darkPurple.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: NeonTheme.electricBlue.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.account_circle,
+                size: 32,
+                color: NeonTheme.electricBlue,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Account Information',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: NeonTheme.electricBlue,
+                  shadows: NeonTheme.getNeonGlow(NeonTheme.electricBlue),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
+          // User Status
+          _buildInfoRow(
+            'Status',
+            authProvider.isAuthenticated 
+              ? (authProvider.isGuest ? 'Guest Player' : 'Authenticated')
+              : 'Not Signed In',
+            authProvider.isAuthenticated 
+              ? (authProvider.isGuest ? NeonTheme.warningOrange : NeonTheme.neonGreen)
+              : NeonTheme.warningOrange,
+          ),
+          
+          if (authProvider.isAuthenticated) ...[
+            const SizedBox(height: 12),
+            _buildInfoRow(
+              'Display Name',
+              authProvider.getUserDisplayName(),
+              NeonTheme.white,
+            ),
+            
+            const SizedBox(height: 12),
+            _buildInfoRow(
+              'Best Score',
+              authProvider.getUserBestScore().toString(),
+              NeonTheme.hotPink,
+            ),
+            
+            const SizedBox(height: 12),
+            _buildInfoRow(
+              'Games Played',
+              authProvider.getUserTotalGames().toString(),
+              NeonTheme.neonGreen,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, Color valueColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            color: NeonTheme.white.withOpacity(0.8),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccountActionsSection(AuthenticationProvider authProvider) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: NeonTheme.darkPurple.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: NeonTheme.hotPink.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.settings,
+                size: 32,
+                color: NeonTheme.hotPink,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Account Actions',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: NeonTheme.hotPink,
+                  shadows: NeonTheme.getNeonGlow(NeonTheme.hotPink),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
+          if (authProvider.isAuthenticated) ...[
+            // Logout Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: authProvider.isLoading ? null : () => _handleLogout(authProvider),
+                icon: authProvider.isLoading 
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(NeonTheme.white),
+                      ),
+                    )
+                  : Icon(Icons.logout, color: NeonTheme.white),
+                label: Text(
+                  authProvider.isLoading ? 'Signing Out...' : 'Sign Out',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: NeonTheme.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: NeonTheme.warningOrange,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: NeonTheme.warningOrange.withOpacity(0.5),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            if (authProvider.isGuest) ...[
+              const SizedBox(height: 16),
+              // Upgrade Account Button for Guest Users
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: authProvider.isLoading ? null : () => _handleUpgradeAccount(authProvider),
+                  icon: Icon(Icons.upgrade, color: NeonTheme.white),
+                  label: Text(
+                    'Upgrade to Google Account',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: NeonTheme.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: NeonTheme.neonGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: NeonTheme.neonGreen.withOpacity(0.5),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ] else ...[
+            // Sign In Options for Non-Authenticated Users
+            Text(
+              'Sign in to save your progress and compete on leaderboards!',
+              style: TextStyle(
+                fontSize: 16,
+                color: NeonTheme.white.withOpacity(0.8),
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.of(context).pushNamed('/authentication'),
+                icon: Icon(Icons.login, color: NeonTheme.white),
+                label: Text(
+                  'Go to Sign In',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: NeonTheme.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: NeonTheme.electricBlue,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: NeonTheme.electricBlue.withOpacity(0.5),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          
+          // Temporary Notice
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: NeonTheme.warningOrange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: NeonTheme.warningOrange.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 20,
+                  color: NeonTheme.warningOrange,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Note: This is a temporary location for account actions. These will be moved to a dedicated user profile screen in a future update.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: NeonTheme.warningOrange,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleLogout(AuthenticationProvider authProvider) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: NeonTheme.darkPurple,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(
+            color: NeonTheme.warningOrange.withOpacity(0.5),
+            width: 2,
+          ),
+        ),
+        title: Text(
+          'Confirm Sign Out',
+          style: TextStyle(
+            color: NeonTheme.warningOrange,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to sign out? You will lose access to your saved progress and leaderboard data.',
+          style: TextStyle(
+            color: NeonTheme.white.withOpacity(0.9),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: NeonTheme.white.withOpacity(0.7)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: NeonTheme.warningOrange,
+            ),
+            child: Text(
+              'Sign Out',
+              style: TextStyle(color: NeonTheme.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await authProvider.signOut();
+      
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Successfully signed out'),
+              backgroundColor: NeonTheme.neonGreen,
+            ),
+          );
+          
+          // Navigate back to main menu or authentication screen
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/main_menu',
+            (route) => false,
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(authProvider.getFormattedErrorMessage()),
+              backgroundColor: NeonTheme.warningOrange,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleUpgradeAccount(AuthenticationProvider authProvider) async {
+    final success = await authProvider.upgradeGuestToGoogle();
+    
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Account upgraded successfully!'),
+            backgroundColor: NeonTheme.neonGreen,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.getFormattedErrorMessage()),
+            backgroundColor: NeonTheme.warningOrange,
+          ),
+        );
+      }
+    }
+  }
 }
