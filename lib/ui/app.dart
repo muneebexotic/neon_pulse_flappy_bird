@@ -1,12 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/authentication_provider.dart';
+import '../services/leaderboard_integration_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/main_menu_screen.dart';
 import 'screens/authentication_screen.dart';
 
-class NeonPulseFlappyBirdApp extends StatelessWidget {
+class NeonPulseFlappyBirdApp extends StatefulWidget {
   const NeonPulseFlappyBirdApp({super.key});
+
+  @override
+  State<NeonPulseFlappyBirdApp> createState() => _NeonPulseFlappyBirdAppState();
+}
+
+class _NeonPulseFlappyBirdAppState extends State<NeonPulseFlappyBirdApp> {
+  @override
+  void initState() {
+    super.initState();
+    _processQueuedScores();
+  }
+
+  /// Process any queued offline scores when app starts
+  Future<void> _processQueuedScores() async {
+    try {
+      final processedCount = await LeaderboardIntegrationService.processQueuedScores();
+      if (processedCount > 0) {
+        print('Processed $processedCount queued scores on app startup');
+      }
+    } catch (e) {
+      print('Error processing queued scores on startup: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

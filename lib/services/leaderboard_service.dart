@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_service.dart';
 
 /// Model for leaderboard entries
@@ -76,6 +78,7 @@ class LeaderboardService {
       if (!FirebaseService.isOnline) {
         // Queue score for later submission
         await _queueOfflineScore(userId, playerName, score, photoURL, gameMode);
+        print('Score queued for offline submission: $score');
         return false;
       }
 
@@ -94,17 +97,20 @@ class LeaderboardService {
         photoURL: photoURL,
       );
 
+      print('Submitting score to Firestore: $score for user: $userId');
+
       // Submit to Firestore
-      await FirebaseService.firestore!
+      final docRef = await FirebaseService.firestore!
           .collection(_leaderboardCollection)
           .doc(gameMode)
           .collection('scores')
           .add(entry.toJson());
 
-      print('Score submitted successfully: $score');
+      print('Score submitted successfully: $score with ID: ${docRef.id}');
       return true;
     } catch (e) {
       print('Failed to submit score: $e');
+      print('Error type: ${e.runtimeType}');
       // Queue for offline submission
       await _queueOfflineScore(userId, playerName, score, photoURL, gameMode);
       return false;
@@ -237,16 +243,80 @@ class LeaderboardService {
     String? photoURL,
     String gameMode,
   ) async {
-    // TODO: Implement offline score queuing using local storage
-    // This would store scores locally and submit them when online
-    print('Score queued for offline submission: $score');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final queuedScoresJson = prefs.getString('queued_leaderboard_scores') ?? '[]';
+      final queuedScoresList = jsonDecode(queuedScoresJson) as List;
+      
+      // Add new score to queue
+      queuedScoresList.add({
+        'userId': userId,
+        'playerName': playerName,
+        'score': score,
+        'photoURL': photoURL,
+        'gameMode': gameMode,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+      
+      // Keep only the latest 50 scores to prevent storage bloat
+      if (queuedScoresList.length > 50) {
+        queuedScoresList.removeRange(0, queuedScoresList.length - 50);
+      }
+      
+      // Save back to storage
+      await prefs.setString('queued_leaderboard_scores', jsonEncode(queuedScoresList));
+      print('Score queued for offline submission: $score');
+    } catch (e) {
+      print('Error queuing score for offline submission: $e');
+    }
   }
 
   /// Process queued offline scores
   static Future<void> processOfflineScores() async {
-    // TODO: Implement processing of queued offline scores
-    // This would be called when the app comes back online
-    print('Processing offline scores...');
+    try {
+      if (!FirebaseService.isOnline) return;
+      
+      final prefs = await SharedPreferences.getInstance();
+      final queuedScoresJson = prefs.getString('queued_leaderboard_scores');
+      
+      if (queuedScoresJson == null) return;
+      
+      final queuedScoresList = jsonDecode(queuedScoresJson) as List;
+      if (queuedScoresList.isEmpty) return;
+      
+      int processedCount = 0;
+      final failedScores = <Map<String, dynamic>>[];
+      
+      for (final scoreData in queuedScoresList) {
+        try {
+          final success = await submitScore(
+            userId: scoreData['userId'] ?? '',
+            playerName: scoreData['playerName'] ?? '',
+            score: scoreData['score'] ?? 0,
+            photoURL: scoreData['photoURL'],
+            gameMode: scoreData['gameMode'] ?? _defaultGameMode,
+          );
+          
+          if (success) {
+            processedCount++;
+          } else {
+            failedScores.add(scoreData);
+          }
+        } catch (e) {
+          print('Failed to process queued score: $e');
+          failedScores.add(scoreData);
+        }
+      }
+      
+      // Update queue with only failed scores
+      await prefs.setString('queued_leaderboard_scores', jsonEncode(failedScores));
+      
+      if (processedCount > 0) {
+        print('Processed $processedCount queued leaderboard scores');
+      }
+    } catch (e) {
+      print('Error processing queued offline scores: $e');
+    }
   }
 
   /// Clean up old scores to maintain leaderboard size

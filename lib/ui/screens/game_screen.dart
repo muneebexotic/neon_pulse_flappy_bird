@@ -7,6 +7,7 @@ import '../../models/achievement.dart';
 import '../../models/bird_skin.dart';
 import '../../game/managers/achievement_manager.dart';
 import '../../game/managers/customization_manager.dart';
+import '../../services/leaderboard_integration_service.dart';
 import '../components/game_hud.dart';
 import '../components/pause_overlay.dart';
 import '../components/achievement_notification.dart';
@@ -47,9 +48,11 @@ class _GameScreenState extends State<GameScreen>
   final GlobalKey _screenshotKey = GlobalKey();
   
   // Game statistics tracking
-  int _gameStartTime = 0;
+  DateTime? _gameStartTime;
+  int _jumpCount = 0;
   int _pulseUsageCount = 0;
   int _powerUpsCollectedCount = 0;
+  String? _currentSessionId;
 
   @override
   void initState() {
@@ -110,14 +113,17 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _trackGameStart() {
-    _gameStartTime = DateTime.now().millisecondsSinceEpoch;
+    _gameStartTime = DateTime.now();
+    _jumpCount = 0;
     _pulseUsageCount = 0;
     _powerUpsCollectedCount = 0;
+    _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
   }
 
   void _trackGameEnd() {
-    if (_gameStartTime > 0) {
-      final survivalTime = (DateTime.now().millisecondsSinceEpoch - _gameStartTime) ~/ 1000;
+    if (_gameStartTime != null) {
+      final endTime = DateTime.now();
+      final survivalTime = endTime.difference(_gameStartTime!).inSeconds;
       
       // Update achievement statistics
       _achievementManager.updateGameStatistics(
@@ -128,6 +134,10 @@ class _GameScreenState extends State<GameScreen>
         survivalTime: survivalTime,
       );
     }
+  }
+
+  void _trackJump() {
+    _jumpCount++;
   }
 
   void _trackPulseUsage() {
@@ -263,6 +273,7 @@ class _GameScreenState extends State<GameScreen>
               highScore: game.gameState.highScore,
               achievementManager: _achievementManager,
               screenshotKey: _screenshotKey,
+              gameSession: _createGameSession(),
               onRestart: () {
                 _trackGameStart();
                 game.startGame();
@@ -384,8 +395,13 @@ class _GameScreenState extends State<GameScreen>
     }
     
     // Track game start on first tap
-    if (game.gameState.status == GameStatus.menu && _gameStartTime == 0) {
+    if (game.gameState.status == GameStatus.menu && _gameStartTime == null) {
       _trackGameStart();
+    }
+    
+    // Track jump if in playing state
+    if (game.gameState.status == GameStatus.playing && !game.gameState.isPaused) {
+      _trackJump();
     }
     
     // Always handle single tap immediately for responsive gameplay
@@ -405,11 +421,32 @@ class _GameScreenState extends State<GameScreen>
     }
     
     // Track game end when game over
-    if (game.gameState.status == GameStatus.gameOver && _gameStartTime > 0) {
+    if (game.gameState.status == GameStatus.gameOver && _gameStartTime != null) {
       _trackGameEnd();
-      _gameStartTime = 0; // Reset for next game
+      _gameStartTime = null; // Reset for next game
     }
     
     _lastTapTime = now;
+  }
+
+  /// Create game session for score validation
+  GameSession? _createGameSession() {
+    if (_gameStartTime == null || _currentSessionId == null) {
+      return null;
+    }
+
+    final endTime = DateTime.now();
+    final survivalTime = endTime.difference(_gameStartTime!).inSeconds.toDouble();
+
+    return GameSession(
+      startTime: _gameStartTime!,
+      endTime: endTime,
+      finalScore: game.gameState.currentScore,
+      jumpCount: _jumpCount,
+      pulseUsage: _pulseUsageCount,
+      powerUpsCollected: _powerUpsCollectedCount,
+      survivalTime: survivalTime,
+      sessionId: _currentSessionId!,
+    );
   }
 }

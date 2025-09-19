@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'customization_screen.dart';
@@ -8,6 +9,8 @@ import 'leaderboard_screen.dart';
 import '../../game/managers/customization_manager.dart';
 import '../../game/managers/achievement_manager.dart';
 import '../../game/managers/audio_manager.dart';
+import '../../providers/authentication_provider.dart';
+import '../../services/leaderboard_integration_service.dart';
 import '../utils/transition_manager.dart';
 import '../utils/animation_config.dart';
 
@@ -28,6 +31,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObse
     super.initState();
     _achievementManager = AchievementManager(_customizationManager);
     _initializeCustomization();
+    _processQueuedScores();
     
     // Add observer for app lifecycle events
     WidgetsBinding.instance.addObserver(this);
@@ -72,6 +76,34 @@ class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObse
         // App is being terminated - stop all audio
         AudioManager().stopBackgroundMusic();
         break;
+    }
+  }
+
+  /// Process any queued offline scores when returning to main menu
+  Future<void> _processQueuedScores() async {
+    try {
+      final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+      
+      // Only process scores for authenticated users
+      if (authProvider.isAuthenticated && !authProvider.isGuest) {
+        final processedCount = await LeaderboardIntegrationService.processQueuedScores();
+        if (processedCount > 0) {
+          print('Processed $processedCount queued scores in main menu');
+          
+          // Show a subtle notification to the user
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$processedCount queued scores submitted to leaderboard'),
+                backgroundColor: Colors.green.withValues(alpha: 0.8),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      print('Error processing queued scores in main menu: $e');
     }
   }
 

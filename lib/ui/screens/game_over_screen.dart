@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../game/managers/achievement_manager.dart';
+import '../../services/leaderboard_integration_service.dart';
+import '../../providers/authentication_provider.dart';
+import '../components/celebration_overlay.dart';
+import '../components/score_submission_dialog.dart';
 import '../theme/neon_theme.dart';
+import 'leaderboard_screen.dart';
 
 /// Game over screen that displays final score, high score, and restart button
-class GameOverScreen extends StatelessWidget {
+class GameOverScreen extends StatefulWidget {
   final int finalScore;
   final int highScore;
   final VoidCallback onRestart;
   final VoidCallback onMainMenu;
   final AchievementManager? achievementManager;
   final GlobalKey? screenshotKey;
+  final GameSession? gameSession;
 
   const GameOverScreen({
     super.key,
@@ -19,11 +26,155 @@ class GameOverScreen extends StatelessWidget {
     required this.onMainMenu,
     this.achievementManager,
     this.screenshotKey,
+    this.gameSession,
   });
 
   @override
+  State<GameOverScreen> createState() => _GameOverScreenState();
+}
+
+class _GameOverScreenState extends State<GameOverScreen> {
+  bool _isSubmittingScore = false;
+  bool _hasSubmittedScore = false;
+  ScoreSubmissionResult? _submissionResult;
+  int? _leaderboardPosition;
+  CelebrationLevel? _celebrationLevel;
+  bool _showCelebration = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _handleScoreSubmission();
+  }
+
+  Future<void> _handleScoreSubmission() async {
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    
+    // Submit score for all users (authenticated and guest)
+    if (!authProvider.isAuthenticated) {
+      return;
+    }
+
+    // Don't submit if already submitted
+    if (_hasSubmittedScore) return;
+
+    setState(() {
+      _isSubmittingScore = true;
+    });
+
+    try {
+      // Create game session if not provided
+      final gameSession = widget.gameSession ?? GameSession(
+        startTime: DateTime.now().subtract(const Duration(minutes: 1)),
+        endTime: DateTime.now(),
+        finalScore: widget.finalScore,
+        jumpCount: widget.finalScore * 2, // Estimate
+        pulseUsage: widget.finalScore ~/ 5, // Estimate
+        powerUpsCollected: widget.finalScore ~/ 10, // Estimate
+        survivalTime: widget.finalScore * 1.5, // Estimate
+        sessionId: DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+
+      // Submit score
+      final result = await LeaderboardIntegrationService.submitScore(
+        score: widget.finalScore,
+        gameSession: gameSession,
+        user: authProvider.currentUser,
+      );
+
+      // Get leaderboard position if successful
+      int? position;
+      if (result == ScoreSubmissionResult.success) {
+        position = await LeaderboardIntegrationService.getUserLeaderboardPosition(
+          userId: authProvider.currentUser!.uid!,
+          score: widget.finalScore,
+        );
+      }
+
+      // Determine celebration level
+      final isPersonalBest = widget.finalScore == widget.highScore && widget.finalScore > 0;
+      final celebrationLevel = await LeaderboardIntegrationService.getCelebrationLevel(
+        score: widget.finalScore,
+        isPersonalBest: isPersonalBest,
+      );
+
+      setState(() {
+        _isSubmittingScore = false;
+        _hasSubmittedScore = true;
+        _submissionResult = result;
+        _leaderboardPosition = position;
+        _celebrationLevel = celebrationLevel;
+        _showCelebration = celebrationLevel == CelebrationLevel.legendary || 
+                         celebrationLevel == CelebrationLevel.epic;
+      });
+
+      // Show celebration overlay for top achievements
+      if (_showCelebration) {
+        _showCelebrationOverlay();
+      }
+
+      // Update user statistics
+      await authProvider.recordGameResult(widget.finalScore);
+
+    } catch (e) {
+      print('Error handling score submission: $e');
+      setState(() {
+        _isSubmittingScore = false;
+        _submissionResult = ScoreSubmissionResult.failed;
+      });
+    }
+  }
+
+  void _showCelebrationOverlay() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => CelebrationOverlay(
+        level: _celebrationLevel!,
+        score: widget.finalScore,
+        leaderboardPosition: _leaderboardPosition,
+        isPersonalBest: widget.finalScore == widget.highScore && widget.finalScore > 0,
+        onComplete: () {
+          Navigator.of(context).pop();
+          _showScoreSubmissionDialog();
+        },
+      ),
+    );
+  }
+
+  void _showScoreSubmissionDialog() {
+    if (_submissionResult == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => ScoreSubmissionDialog(
+        score: widget.finalScore,
+        result: _submissionResult!,
+        leaderboardPosition: _leaderboardPosition,
+        isPersonalBest: widget.finalScore == widget.highScore && widget.finalScore > 0,
+        onViewLeaderboard: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const LeaderboardScreen(),
+            ),
+          );
+        },
+        onRetry: () {
+          Navigator.of(context).pop();
+          setState(() {
+            _hasSubmittedScore = false;
+          });
+          _handleScoreSubmission();
+        },
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isNewHighScore = finalScore == highScore && finalScore > 0;
+    final isNewHighScore = widget.finalScore == widget.highScore && widget.finalScore > 0;
     
     return Container(
       color: Colors.black.withValues(alpha: 0.8),
@@ -89,12 +240,24 @@ class GameOverScreen extends StatelessWidget {
               ],
               
               // Final Score
-              _buildScoreRow('SCORE', finalScore, Colors.cyan),
+              _buildScoreRow('SCORE', widget.finalScore, Colors.cyan),
               
               const SizedBox(height: 12),
               
               // High Score
-              _buildScoreRow('HIGH SCORE', highScore, Colors.green),
+              _buildScoreRow('HIGH SCORE', widget.highScore, Colors.green),
+              
+              // Leaderboard position (if available)
+              if (_leaderboardPosition != null) ...[
+                const SizedBox(height: 12),
+                _buildScoreRow('GLOBAL RANK', _leaderboardPosition!, Colors.yellow),
+              ],
+              
+              // Score submission status
+              if (_isSubmittingScore) ...[
+                const SizedBox(height: 16),
+                _buildSubmissionStatus(),
+              ],
               
               const SizedBox(height: 32),
               
@@ -110,7 +273,7 @@ class GameOverScreen extends StatelessWidget {
                         'RESTART',
                         Icons.refresh,
                         Colors.cyan,
-                        onRestart,
+                        widget.onRestart,
                       ),
                     ),
                   ),
@@ -123,13 +286,31 @@ class GameOverScreen extends StatelessWidget {
                         'MENU',
                         Icons.home,
                         Colors.orange,
-                        onMainMenu,
+                        widget.onMainMenu,
                       ),
                     ),
                   ),
                   
+                  // Leaderboard Button (if score was submitted)
+                  if (_submissionResult == ScoreSubmissionResult.success)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: _buildActionButton(
+                          'BOARD',
+                          Icons.leaderboard,
+                          Colors.yellow,
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const LeaderboardScreen(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  
                   // Share Score Button (only if achievement manager is available)
-                  if (achievementManager != null)
+                  if (widget.achievementManager != null)
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -138,6 +319,20 @@ class GameOverScreen extends StatelessWidget {
                           Icons.share,
                           NeonTheme.secondaryNeon,
                           () => _shareScore(),
+                        ),
+                      ),
+                    ),
+                  
+                  // Score Status Button (show submission dialog)
+                  if (_submissionResult != null && _submissionResult != ScoreSubmissionResult.success)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: _buildActionButton(
+                          'STATUS',
+                          Icons.info,
+                          _getStatusColor(),
+                          _showScoreSubmissionDialog,
                         ),
                       ),
                     ),
@@ -230,15 +425,70 @@ class GameOverScreen extends StatelessWidget {
 
 
 
+  Widget _buildSubmissionStatus() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        border: Border.all(color: Colors.orange, width: 1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.orange,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Submitting score...',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.orange,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor() {
+    switch (_submissionResult) {
+      case ScoreSubmissionResult.success:
+        return Colors.green;
+      case ScoreSubmissionResult.queued:
+        return Colors.orange;
+      case ScoreSubmissionResult.failed:
+      case ScoreSubmissionResult.networkError:
+        return Colors.red;
+      case ScoreSubmissionResult.invalidScore:
+        return Colors.orange;
+      case ScoreSubmissionResult.notAuthenticated:
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
   void _shareScore() {
-    if (achievementManager != null) {
-      final isNewHighScore = finalScore == highScore && finalScore > 0;
-      final message = isNewHighScore
-          ? 'NEW HIGH SCORE! Just scored $finalScore points in Neon Pulse! 🚀✨ Can you beat my cyberpunk bird skills? #NeonPulse #NewRecord'
-          : 'Just scored $finalScore points in Neon Pulse! 🚀✨ My high score is $highScore. Can you beat it? #NeonPulse #Gaming';
+    if (widget.achievementManager != null) {
+      final isNewHighScore = widget.finalScore == widget.highScore && widget.finalScore > 0;
+      String message = isNewHighScore
+          ? 'NEW HIGH SCORE! Just scored ${widget.finalScore} points in Neon Pulse! 🚀✨ Can you beat my cyberpunk bird skills? #NeonPulse #NewRecord'
+          : 'Just scored ${widget.finalScore} points in Neon Pulse! 🚀✨ My high score is ${widget.highScore}. Can you beat it? #NeonPulse #Gaming';
       
-      achievementManager!.shareHighScore(
-        score: finalScore,
+      // Add leaderboard position if available
+      if (_leaderboardPosition != null) {
+        message += '\n🏆 Global Rank: #$_leaderboardPosition';
+      }
+      
+      widget.achievementManager!.shareHighScore(
+        score: widget.finalScore,
         customMessage: message,
       );
     }
