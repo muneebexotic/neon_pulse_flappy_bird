@@ -94,7 +94,22 @@ enum NodeVisualState {
   rewardAvailable,
 }
 
-/// Configuration for path layout calculations
+/// Screen size categories for responsive design
+enum ScreenSizeCategory {
+  small,    // < 600dp
+  medium,   // 600-900dp
+  large,    // 900-1200dp
+  extraLarge, // > 1200dp
+}
+
+/// Layout orientation based on aspect ratio
+enum LayoutOrientation {
+  portrait,     // height > width * 1.2
+  landscape,    // width > height * 1.2
+  square,       // roughly equal dimensions
+}
+
+/// Configuration for path layout calculations with enhanced responsive features
 class PathLayoutConfig {
   final bool isHorizontalLayout;
   final double pathSpacing;
@@ -104,6 +119,17 @@ class PathLayoutConfig {
   final double minNodeSpacing;
   final double maxPathWidth;
   final double branchOffset;
+  
+  // Enhanced responsive properties
+  final ScreenSizeCategory sizeCategory;
+  final LayoutOrientation orientation;
+  final double scaleFactor;
+  final double aspectRatio;
+  final double densityFactor;
+  final int maxNodesPerRow;
+  final double branchSpacing;
+  final double pathCurvature;
+  final bool enableCompactMode;
 
   const PathLayoutConfig({
     required this.isHorizontalLayout,
@@ -111,26 +137,318 @@ class PathLayoutConfig {
     required this.nodeSize,
     required this.branchAngle,
     required this.screenPadding,
+    required this.sizeCategory,
+    required this.orientation,
+    required this.scaleFactor,
+    required this.aspectRatio,
+    required this.densityFactor,
     this.minNodeSpacing = 80.0,
     this.maxPathWidth = 400.0,
     this.branchOffset = 60.0,
+    this.maxNodesPerRow = 5,
+    this.branchSpacing = 120.0,
+    this.pathCurvature = 0.3,
+    this.enableCompactMode = false,
   });
 
-  /// Create a responsive layout config based on screen size
-  factory PathLayoutConfig.responsive(Size screenSize) {
-    final isWide = screenSize.width > screenSize.height * 1.2;
-    final scaleFactor = math.min(screenSize.width, screenSize.height) / 400.0;
+  /// Create a responsive layout config based on screen size and device characteristics
+  factory PathLayoutConfig.responsive(Size screenSize, {double? devicePixelRatio}) {
+    final pixelRatio = devicePixelRatio ?? 1.0;
+    final aspectRatio = screenSize.width / screenSize.height;
+    
+    // Determine screen size category
+    final minDimension = math.min(screenSize.width, screenSize.height);
+    final sizeCategory = _determineScreenSizeCategory(minDimension);
+    
+    // Determine layout orientation
+    final orientation = _determineLayoutOrientation(aspectRatio);
+    
+    // Calculate responsive scale factor
+    final scaleFactor = _calculateScaleFactor(screenSize, sizeCategory);
+    
+    // Determine if horizontal layout is better
+    final isHorizontal = _shouldUseHorizontalLayout(screenSize, orientation, sizeCategory);
+    
+    // Calculate density-aware sizing
+    final densityFactor = math.max(1.0, pixelRatio / 2.0);
+    final baseNodeSize = 44.0; // Minimum accessibility touch target
+    final nodeSize = math.max(baseNodeSize, baseNodeSize * scaleFactor / densityFactor);
+    
+    // Calculate adaptive spacing
+    final baseSpacing = _calculateBaseSpacing(sizeCategory, orientation);
+    final pathSpacing = baseSpacing * scaleFactor;
+    final minNodeSpacing = math.max(nodeSize * 1.8, 60.0 * scaleFactor);
+    
+    // Calculate branch configuration
+    final branchAngle = _calculateOptimalBranchAngle(orientation, aspectRatio);
+    final branchOffset = _calculateBranchOffset(sizeCategory, scaleFactor);
+    final branchSpacing = _calculateBranchSpacing(sizeCategory, scaleFactor);
+    
+    // Calculate path width constraints
+    final maxPathWidth = _calculateMaxPathWidth(screenSize, sizeCategory, orientation);
+    
+    // Determine compact mode for small screens
+    final enableCompactMode = sizeCategory == ScreenSizeCategory.small || 
+                             (orientation == LayoutOrientation.portrait && aspectRatio < 0.6);
+    
+    // Calculate max nodes per row
+    final maxNodesPerRow = _calculateMaxNodesPerRow(screenSize, nodeSize, minNodeSpacing);
+    
+    // Calculate path curvature based on available space
+    final pathCurvature = _calculatePathCurvature(sizeCategory, orientation);
+    
+    // Calculate responsive padding
+    final paddingValue = _calculatePadding(sizeCategory, scaleFactor);
+    final screenPadding = EdgeInsets.all(paddingValue);
     
     return PathLayoutConfig(
-      isHorizontalLayout: isWide,
-      pathSpacing: 120.0 * scaleFactor,
-      nodeSize: 44.0 * scaleFactor, // Minimum touch target size
-      branchAngle: isWide ? math.pi / 6 : math.pi / 4, // 30° or 45°
-      screenPadding: EdgeInsets.all(20.0 * scaleFactor),
-      minNodeSpacing: 80.0 * scaleFactor,
-      maxPathWidth: math.min(400.0 * scaleFactor, screenSize.width * 0.8),
-      branchOffset: 60.0 * scaleFactor,
+      isHorizontalLayout: isHorizontal,
+      pathSpacing: pathSpacing,
+      nodeSize: nodeSize,
+      branchAngle: branchAngle,
+      screenPadding: screenPadding,
+      sizeCategory: sizeCategory,
+      orientation: orientation,
+      scaleFactor: scaleFactor,
+      aspectRatio: aspectRatio,
+      densityFactor: densityFactor,
+      minNodeSpacing: minNodeSpacing,
+      maxPathWidth: maxPathWidth,
+      branchOffset: branchOffset,
+      maxNodesPerRow: maxNodesPerRow,
+      branchSpacing: branchSpacing,
+      pathCurvature: pathCurvature,
+      enableCompactMode: enableCompactMode,
     );
+  }
+
+  /// Determine screen size category based on minimum dimension
+  static ScreenSizeCategory _determineScreenSizeCategory(double minDimension) {
+    if (minDimension < 600) return ScreenSizeCategory.small;
+    if (minDimension < 800) return ScreenSizeCategory.medium;
+    if (minDimension < 1100) return ScreenSizeCategory.large;
+    return ScreenSizeCategory.extraLarge;
+  }
+
+  /// Determine layout orientation based on aspect ratio
+  static LayoutOrientation _determineLayoutOrientation(double aspectRatio) {
+    if (aspectRatio > 1.2) return LayoutOrientation.landscape;
+    if (aspectRatio < 0.83) return LayoutOrientation.portrait; // 1/1.2
+    return LayoutOrientation.square;
+  }
+
+  /// Calculate responsive scale factor
+  static double _calculateScaleFactor(Size screenSize, ScreenSizeCategory category) {
+    final baseSize = 400.0;
+    final minDimension = math.min(screenSize.width, screenSize.height);
+    
+    // Base scale factor
+    double scaleFactor = minDimension / baseSize;
+    
+    // Apply category-specific adjustments
+    switch (category) {
+      case ScreenSizeCategory.small:
+        scaleFactor = math.max(0.8, scaleFactor * 0.9);
+        break;
+      case ScreenSizeCategory.medium:
+        scaleFactor = math.max(1.0, scaleFactor);
+        break;
+      case ScreenSizeCategory.large:
+        scaleFactor = math.min(1.5, scaleFactor * 1.1);
+        break;
+      case ScreenSizeCategory.extraLarge:
+        scaleFactor = math.min(2.0, scaleFactor * 1.2);
+        break;
+    }
+    
+    return scaleFactor.clamp(0.7, 2.5);
+  }
+
+  /// Determine if horizontal layout should be used
+  static bool _shouldUseHorizontalLayout(
+    Size screenSize, 
+    LayoutOrientation orientation, 
+    ScreenSizeCategory category
+  ) {
+    // Always use horizontal for landscape on medium+ screens
+    if (orientation == LayoutOrientation.landscape && 
+        category != ScreenSizeCategory.small) {
+      return true;
+    }
+    
+    // Use horizontal for very wide screens
+    if (screenSize.width > screenSize.height * 1.5) {
+      return true;
+    }
+    
+    // Use vertical for portrait and small screens
+    return false;
+  }
+
+  /// Calculate base spacing for different screen categories
+  static double _calculateBaseSpacing(ScreenSizeCategory category, LayoutOrientation orientation) {
+    double baseSpacing = 120.0;
+    
+    switch (category) {
+      case ScreenSizeCategory.small:
+        baseSpacing = orientation == LayoutOrientation.portrait ? 100.0 : 110.0;
+        break;
+      case ScreenSizeCategory.medium:
+        baseSpacing = 120.0;
+        break;
+      case ScreenSizeCategory.large:
+        baseSpacing = 140.0;
+        break;
+      case ScreenSizeCategory.extraLarge:
+        baseSpacing = 160.0;
+        break;
+    }
+    
+    return baseSpacing;
+  }
+
+  /// Calculate optimal branch angle based on orientation and aspect ratio
+  static double _calculateOptimalBranchAngle(LayoutOrientation orientation, double aspectRatio) {
+    switch (orientation) {
+      case LayoutOrientation.portrait:
+        return math.pi / 4; // 45 degrees - more vertical space
+      case LayoutOrientation.landscape:
+        return math.pi / 6; // 30 degrees - more horizontal space
+      case LayoutOrientation.square:
+        return math.pi / 5; // 36 degrees - balanced
+    }
+  }
+
+  /// Calculate branch offset based on screen size and scale
+  static double _calculateBranchOffset(ScreenSizeCategory category, double scaleFactor) {
+    double baseOffset = 60.0;
+    
+    switch (category) {
+      case ScreenSizeCategory.small:
+        baseOffset = 45.0;
+        break;
+      case ScreenSizeCategory.medium:
+        baseOffset = 60.0;
+        break;
+      case ScreenSizeCategory.large:
+        baseOffset = 75.0;
+        break;
+      case ScreenSizeCategory.extraLarge:
+        baseOffset = 90.0;
+        break;
+    }
+    
+    return baseOffset * scaleFactor;
+  }
+
+  /// Calculate branch spacing
+  static double _calculateBranchSpacing(ScreenSizeCategory category, double scaleFactor) {
+    double baseSpacing = 120.0;
+    
+    switch (category) {
+      case ScreenSizeCategory.small:
+        baseSpacing = 100.0;
+        break;
+      case ScreenSizeCategory.medium:
+        baseSpacing = 120.0;
+        break;
+      case ScreenSizeCategory.large:
+        baseSpacing = 140.0;
+        break;
+      case ScreenSizeCategory.extraLarge:
+        baseSpacing = 160.0;
+        break;
+    }
+    
+    return baseSpacing * scaleFactor;
+  }
+
+  /// Calculate maximum path width
+  static double _calculateMaxPathWidth(
+    Size screenSize, 
+    ScreenSizeCategory category, 
+    LayoutOrientation orientation
+  ) {
+    double maxWidth = screenSize.width * 0.8;
+    
+    switch (category) {
+      case ScreenSizeCategory.small:
+        maxWidth = math.min(maxWidth, 300.0);
+        break;
+      case ScreenSizeCategory.medium:
+        maxWidth = math.min(maxWidth, 500.0);
+        break;
+      case ScreenSizeCategory.large:
+        maxWidth = math.min(maxWidth, 700.0);
+        break;
+      case ScreenSizeCategory.extraLarge:
+        maxWidth = math.min(maxWidth, 900.0);
+        break;
+    }
+    
+    // Adjust for orientation
+    if (orientation == LayoutOrientation.portrait) {
+      maxWidth = math.min(maxWidth, screenSize.width * 0.9);
+    }
+    
+    return maxWidth;
+  }
+
+  /// Calculate maximum nodes per row
+  static int _calculateMaxNodesPerRow(Size screenSize, double nodeSize, double minSpacing) {
+    final availableWidth = screenSize.width * 0.8;
+    final nodeWithSpacing = nodeSize + minSpacing;
+    final maxNodes = (availableWidth / nodeWithSpacing).floor();
+    return math.max(2, math.min(8, maxNodes));
+  }
+
+  /// Calculate path curvature factor
+  static double _calculatePathCurvature(ScreenSizeCategory category, LayoutOrientation orientation) {
+    double curvature = 0.3;
+    
+    switch (category) {
+      case ScreenSizeCategory.small:
+        curvature = 0.2; // Less curvature for small screens
+        break;
+      case ScreenSizeCategory.medium:
+        curvature = 0.3;
+        break;
+      case ScreenSizeCategory.large:
+        curvature = 0.4;
+        break;
+      case ScreenSizeCategory.extraLarge:
+        curvature = 0.5; // More dramatic curves on large screens
+        break;
+    }
+    
+    // Adjust for orientation
+    if (orientation == LayoutOrientation.landscape) {
+      curvature *= 0.8; // Reduce curvature in landscape
+    }
+    
+    return curvature;
+  }
+
+  /// Calculate responsive padding
+  static double _calculatePadding(ScreenSizeCategory category, double scaleFactor) {
+    double basePadding = 20.0;
+    
+    switch (category) {
+      case ScreenSizeCategory.small:
+        basePadding = 16.0;
+        break;
+      case ScreenSizeCategory.medium:
+        basePadding = 20.0;
+        break;
+      case ScreenSizeCategory.large:
+        basePadding = 24.0;
+        break;
+      case ScreenSizeCategory.extraLarge:
+        basePadding = 32.0;
+        break;
+    }
+    
+    return basePadding * scaleFactor;
   }
 
   /// Get the effective screen size after padding
@@ -138,6 +456,71 @@ class PathLayoutConfig {
     return Size(
       screenSize.width - screenPadding.horizontal,
       screenSize.height - screenPadding.vertical,
+    );
+  }
+
+  /// Get responsive node size with minimum touch target compliance
+  double getResponsiveNodeSize() {
+    return math.max(44.0, nodeSize); // Ensure minimum 44dp touch target
+  }
+
+  /// Get adaptive branch length based on available space
+  double getAdaptiveBranchLength(double baseLength) {
+    return baseLength * scaleFactor * (enableCompactMode ? 0.8 : 1.0);
+  }
+
+  /// Check if the layout should use compact mode
+  bool shouldUseCompactMode() {
+    return enableCompactMode;
+  }
+
+  /// Get the optimal number of path segments for smooth curves
+  int getOptimalPathSegments() {
+    switch (sizeCategory) {
+      case ScreenSizeCategory.small:
+        return 8;
+      case ScreenSizeCategory.medium:
+        return 12;
+      case ScreenSizeCategory.large:
+        return 16;
+      case ScreenSizeCategory.extraLarge:
+        return 20;
+    }
+  }
+
+  /// Create a copy with updated properties
+  PathLayoutConfig copyWith({
+    bool? isHorizontalLayout,
+    double? pathSpacing,
+    double? nodeSize,
+    double? branchAngle,
+    EdgeInsets? screenPadding,
+    double? minNodeSpacing,
+    double? maxPathWidth,
+    double? branchOffset,
+    int? maxNodesPerRow,
+    double? branchSpacing,
+    double? pathCurvature,
+    bool? enableCompactMode,
+  }) {
+    return PathLayoutConfig(
+      isHorizontalLayout: isHorizontalLayout ?? this.isHorizontalLayout,
+      pathSpacing: pathSpacing ?? this.pathSpacing,
+      nodeSize: nodeSize ?? this.nodeSize,
+      branchAngle: branchAngle ?? this.branchAngle,
+      screenPadding: screenPadding ?? this.screenPadding,
+      sizeCategory: sizeCategory,
+      orientation: orientation,
+      scaleFactor: scaleFactor,
+      aspectRatio: aspectRatio,
+      densityFactor: densityFactor,
+      minNodeSpacing: minNodeSpacing ?? this.minNodeSpacing,
+      maxPathWidth: maxPathWidth ?? this.maxPathWidth,
+      branchOffset: branchOffset ?? this.branchOffset,
+      maxNodesPerRow: maxNodesPerRow ?? this.maxNodesPerRow,
+      branchSpacing: branchSpacing ?? this.branchSpacing,
+      pathCurvature: pathCurvature ?? this.pathCurvature,
+      enableCompactMode: enableCompactMode ?? this.enableCompactMode,
     );
   }
 }
@@ -228,7 +611,7 @@ class BranchingLogic {
     return branchConfigs[type];
   }
 
-  /// Calculate branch path points from a starting point
+  /// Calculate branch path points from a starting point with responsive positioning
   List<Vector2> calculateBranchPath(
     Vector2 startPoint,
     AchievementType type,
@@ -239,32 +622,174 @@ class BranchingLogic {
 
     final points = <Vector2>[startPoint.clone()];
     
-    // Calculate branch direction based on layout orientation
-    double effectiveAngle = config.angle;
-    if (layoutConfig.isHorizontalLayout) {
-      // Adjust angles for horizontal layout
-      effectiveAngle = config.angle + math.pi / 2;
-    }
-
-    // Create branch points
-    final branchLength = config.length * (layoutConfig.nodeSize / 44.0); // Scale with node size
+    // Calculate responsive branch direction based on layout configuration
+    double effectiveAngle = _calculateResponsiveBranchAngle(config.angle, layoutConfig);
+    
+    // Calculate adaptive branch length
+    final adaptiveBranchLength = _calculateAdaptiveBranchLength(config.length, layoutConfig);
+    
+    // Create branch points with responsive spacing
+    final segments = _calculateOptimalBranchSegments(layoutConfig);
     final direction = Vector2(math.cos(effectiveAngle), math.sin(effectiveAngle));
     
-    // Add intermediate points for smooth curves
-    const segments = 3;
     for (int i = 1; i <= segments; i++) {
-      final t = i / segments;
-      final distance = branchLength * t;
+      final t = i / segments.toDouble();
+      final distance = adaptiveBranchLength * t;
       
-      // Add slight curve to make branches more organic
-      final curveFactor = math.sin(t * math.pi) * 0.2;
-      final curveOffset = Vector2(-direction.y, direction.x) * curveFactor * branchLength;
+      // Apply responsive curvature
+      final curveFactor = _calculateCurveFactor(t, layoutConfig);
+      final curveOffset = Vector2(-direction.y, direction.x) * curveFactor * adaptiveBranchLength;
       
       final point = startPoint + (direction * distance) + curveOffset;
       points.add(point);
     }
 
     return points;
+  }
+
+  /// Calculate responsive branch angle based on layout configuration
+  double _calculateResponsiveBranchAngle(double baseAngle, PathLayoutConfig layoutConfig) {
+    double effectiveAngle = baseAngle;
+    
+    // Adjust for layout orientation
+    switch (layoutConfig.orientation) {
+      case LayoutOrientation.landscape:
+        // Compress angles horizontally in landscape mode
+        effectiveAngle = baseAngle * 0.7;
+        if (layoutConfig.isHorizontalLayout) {
+          effectiveAngle += math.pi / 2; // Rotate for horizontal main path
+        }
+        break;
+      case LayoutOrientation.portrait:
+        // Expand angles vertically in portrait mode
+        effectiveAngle = baseAngle * 1.2;
+        break;
+      case LayoutOrientation.square:
+        // Use base angle for square layouts
+        effectiveAngle = baseAngle;
+        break;
+    }
+    
+    // Adjust for compact mode
+    if (layoutConfig.enableCompactMode) {
+      effectiveAngle *= 0.8; // Reduce branch spread in compact mode
+    }
+    
+    // Ensure branches don't overlap with main path
+    final minAngle = math.pi / 8; // 22.5 degrees minimum
+    if (effectiveAngle.abs() < minAngle) {
+      effectiveAngle = effectiveAngle.sign * minAngle;
+    }
+    
+    return effectiveAngle;
+  }
+
+  /// Calculate adaptive branch length based on screen size and layout
+  double _calculateAdaptiveBranchLength(double baseLength, PathLayoutConfig layoutConfig) {
+    double adaptiveLength = baseLength * layoutConfig.scaleFactor;
+    
+    // Adjust for screen size category
+    switch (layoutConfig.sizeCategory) {
+      case ScreenSizeCategory.small:
+        adaptiveLength *= 0.7; // Shorter branches on small screens
+        break;
+      case ScreenSizeCategory.medium:
+        adaptiveLength *= 1.0;
+        break;
+      case ScreenSizeCategory.large:
+        adaptiveLength *= 1.3;
+        break;
+      case ScreenSizeCategory.extraLarge:
+        adaptiveLength *= 1.5;
+        break;
+    }
+    
+    // Adjust for compact mode
+    if (layoutConfig.enableCompactMode) {
+      adaptiveLength *= 0.6;
+    }
+    
+    // Ensure minimum branch length for visibility
+    return math.max(adaptiveLength, 40.0 * layoutConfig.scaleFactor);
+  }
+
+  /// Calculate optimal number of branch segments for smooth curves
+  int _calculateOptimalBranchSegments(PathLayoutConfig layoutConfig) {
+    switch (layoutConfig.sizeCategory) {
+      case ScreenSizeCategory.small:
+        return layoutConfig.enableCompactMode ? 2 : 3;
+      case ScreenSizeCategory.medium:
+        return 4;
+      case ScreenSizeCategory.large:
+        return 5;
+      case ScreenSizeCategory.extraLarge:
+        return 6;
+    }
+  }
+
+  /// Calculate curve factor for organic branch appearance
+  double _calculateCurveFactor(double t, PathLayoutConfig layoutConfig) {
+    final baseCurveFactor = math.sin(t * math.pi) * layoutConfig.pathCurvature;
+    
+    // Adjust curve intensity based on screen size
+    double curveMultiplier = 1.0;
+    switch (layoutConfig.sizeCategory) {
+      case ScreenSizeCategory.small:
+        curveMultiplier = 0.5; // Subtle curves on small screens
+        break;
+      case ScreenSizeCategory.medium:
+        curveMultiplier = 0.8;
+        break;
+      case ScreenSizeCategory.large:
+        curveMultiplier = 1.0;
+        break;
+      case ScreenSizeCategory.extraLarge:
+        curveMultiplier = 1.2; // More dramatic curves on large screens
+        break;
+    }
+    
+    return baseCurveFactor * curveMultiplier;
+  }
+
+  /// Calculate optimal branch point positions along the main path
+  List<double> calculateBranchPoints(int branchCount, PathLayoutConfig layoutConfig) {
+    if (branchCount == 0) return [];
+    
+    final points = <double>[];
+    
+    // Distribute branches along the path based on layout configuration
+    if (layoutConfig.enableCompactMode) {
+      // Cluster branches closer to the beginning in compact mode
+      for (int i = 0; i < branchCount; i++) {
+        final t = (i + 1) / (branchCount + 1);
+        final adjustedT = math.pow(t, 0.7).toDouble(); // Bias toward beginning
+        points.add(adjustedT);
+      }
+    } else {
+      // Even distribution for normal layouts
+      for (int i = 0; i < branchCount; i++) {
+        final t = (i + 1) / (branchCount + 1);
+        points.add(t);
+      }
+    }
+    
+    return points;
+  }
+
+  /// Get responsive branch configuration with adaptive properties
+  BranchConfig? getResponsiveBranchConfig(AchievementType type, PathLayoutConfig layoutConfig) {
+    final baseConfig = getBranchConfig(type);
+    if (baseConfig == null) return null;
+    
+    // Create responsive branch config
+    return BranchConfig(
+      type: baseConfig.type,
+      neonColor: baseConfig.neonColor,
+      width: baseConfig.width * layoutConfig.scaleFactor,
+      angle: _calculateResponsiveBranchAngle(baseConfig.angle, layoutConfig),
+      length: _calculateAdaptiveBranchLength(baseConfig.length, layoutConfig),
+      priority: baseConfig.priority,
+    );
   }
 
   /// Get all branch types sorted by priority
