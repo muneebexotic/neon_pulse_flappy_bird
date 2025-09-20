@@ -18,6 +18,7 @@ import '../../controllers/progression_performance_controller.dart';
 import '../painters/path_renderer.dart';
 import '../widgets/achievement_node.dart';
 import '../components/achievement_detail_overlay.dart';
+import '../components/progression_edge_states.dart';
 import '../effects/progression_particle_system.dart';
 import '../theme/neon_theme.dart';
 
@@ -58,6 +59,8 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
   bool _isLoading = true;
   String? _errorMessage;
   Size _screenSize = Size.zero;
+  bool _hasNetworkError = false;
+  bool _showCelebration = false;
   
   // Animation and visual state
   double _currentQualityScale = 1.0;
@@ -215,6 +218,9 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
       // Initialize integration controller
       await _integrationController.initialize(this);
       
+      // Setup achievement update listener
+      _setupAchievementUpdateListener();
+      
       // Initialize scan line controller
       _scanLineController.initialize(this);
       
@@ -224,18 +230,29 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
       // Start performance monitoring
       _startPerformanceMonitoring();
       
+      // Check for celebration state
+      _checkCelebrationState();
+      
       setState(() {
         _isInitialized = true;
         _isLoading = false;
+        _hasNetworkError = false;
       });
       
       // Start reveal animation
       _startRevealAnimation();
       
     } catch (e) {
+      final isNetworkError = e.toString().contains('network') || 
+                           e.toString().contains('connection') ||
+                           e.toString().contains('timeout');
+      
       setState(() {
-        _errorMessage = 'Failed to initialize screen: $e';
+        _errorMessage = isNetworkError 
+            ? 'Network connection failed. Please check your internet connection and try again.'
+            : 'Failed to initialize screen: $e';
         _isLoading = false;
+        _hasNetworkError = isNetworkError;
       });
     }
   }
@@ -338,6 +355,165 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
     widget.hapticManager?.mediumImpact(); // Use existing method
   }
 
+  /// Check if all achievements are completed for celebration state
+  void _checkCelebrationState() {
+    final achievements = _integrationController.currentAchievements;
+    if (achievements.isNotEmpty && achievements.every((a) => a.isUnlocked)) {
+      setState(() {
+        _showCelebration = true;
+      });
+    }
+  }
+
+  /// Handle start journey action from empty state
+  void _handleStartJourney() {
+    Navigator.of(context).pop(); // Return to main game
+  }
+
+  /// Handle continue from celebration state
+  void _handleCelebrationContinue() {
+    setState(() {
+      _showCelebration = false;
+    });
+  }
+
+  /// Check if achievements list is empty (no unlocked achievements)
+  bool _hasNoUnlockedAchievements() {
+    final achievements = _integrationController.currentAchievements;
+    return achievements.isNotEmpty && achievements.every((a) => !a.isUnlocked);
+  }
+
+  /// Setup listener for achievement updates to trigger celebration
+  void _setupAchievementUpdateListener() {
+    _integrationController.addListener(() {
+      if (_isInitialized && !_showCelebration && mounted) {
+        _handleAchievementUpdate();
+      }
+    });
+  }
+
+  /// Handle achievement updates with debouncing to prevent rapid state changes
+  void _handleAchievementUpdate() {
+    final achievements = _integrationController.currentAchievements;
+    
+    // Check for celebration state (all achievements unlocked)
+    if (achievements.isNotEmpty && achievements.every((a) => a.isUnlocked)) {
+      // Debounce celebration trigger to prevent rapid state changes
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && !_showCelebration) {
+          setState(() {
+            _showCelebration = true;
+          });
+          
+          // Add haptic feedback for celebration
+          widget.hapticManager?.heavyImpact();
+        }
+      });
+    }
+    
+    // Handle newly unlocked achievements
+    _handleNewlyUnlockedAchievements(achievements);
+  }
+
+  /// Handle newly unlocked achievements with particle effects
+  void _handleNewlyUnlockedAchievements(List<Achievement> achievements) {
+    // This would track previously unlocked achievements and trigger effects for new ones
+    // For now, we'll just ensure the particle system is updated
+    if (_particleSystem != null) {
+      for (final achievement in achievements) {
+        if (achievement.isUnlocked) {
+          final nodePosition = _integrationController.pathController.nodePositions[achievement.id];
+          if (nodePosition != null) {
+            // Add subtle unlock effect
+            _particleSystem.addNodeUnlockExplosion(
+              position: nodePosition.position,
+              primaryColor: _getAchievementColor(achievement.type),
+              intensity: 0.5,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  /// Get color for achievement type
+  Color _getAchievementColor(AchievementType type) {
+    switch (type) {
+      case AchievementType.score:
+        return NeonTheme.primaryNeon;
+      case AchievementType.totalScore:
+        return const Color(0xFF00FFFF); // Cyan
+      case AchievementType.gamesPlayed:
+        return const Color(0xFFFFFF00); // Yellow
+      case AchievementType.pulseUsage:
+        return const Color(0xFF00FF00); // Green
+      case AchievementType.powerUps:
+        return const Color(0xFFFF4500); // Orange-red
+      case AchievementType.survival:
+        return const Color(0xFF9932CC); // Purple
+    }
+  }
+
+  /// Retry initialization after error
+  Future<void> _retryInitialization() async {
+    setState(() {
+      _errorMessage = null;
+      _isLoading = true;
+      _hasNetworkError = false;
+    });
+    
+    try {
+      // Add haptic feedback for retry action
+      widget.hapticManager?.lightImpact();
+      
+      // Reinitialize components if needed
+      if (!_integrationController.isInitialized) {
+        await _integrationController.initialize(this);
+      } else {
+        await _integrationController.refreshData();
+      }
+      
+      // Reinitialize screen
+      await _initializeScreen();
+      
+    } catch (e) {
+      final isNetworkError = e.toString().contains('network') || 
+                           e.toString().contains('connection') ||
+                           e.toString().contains('timeout');
+      
+      setState(() {
+        _errorMessage = isNetworkError 
+            ? 'Network connection failed. Please check your internet connection and try again.'
+            : 'Retry failed: ${e.toString()}';
+        _isLoading = false;
+        _hasNetworkError = isNetworkError;
+      });
+    }
+  }
+
+  /// Use offline/cached data when network is unavailable
+  void _useOfflineData() {
+    setState(() {
+      _errorMessage = null;
+      _hasNetworkError = false;
+      _isLoading = false;
+      _isInitialized = true;
+    });
+    
+    // Show a brief message about using cached data
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Using cached data. Some information may be outdated.',
+          style: TextStyle(color: NeonTheme.textPrimary),
+        ),
+        backgroundColor: NeonTheme.warningOrange.withValues(alpha: 0.1),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -352,6 +528,10 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
             _buildLoadingState()
           else if (_errorMessage != null)
             _buildErrorState()
+          else if (_showCelebration)
+            _buildCelebrationState()
+          else if (_isInitialized && _hasNoUnlockedAchievements())
+            _buildEmptyState()
           else if (_isInitialized)
             _buildMainContent()
           else
@@ -379,80 +559,101 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
     );
   }
 
-  /// Build loading state
+  /// Build loading state with skeleton path and shimmer effects
   Widget _buildLoadingState() {
+    return ProgressionLoadingState(
+      screenSize: _screenSize.isEmpty ? MediaQuery.of(context).size : _screenSize,
+      showShimmer: true,
+    );
+  }
+
+  /// Build error state with retry functionality
+  Widget _buildErrorState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(NeonTheme.primaryNeon),
-              strokeWidth: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _hasNetworkError ? Icons.wifi_off : Icons.error_outline,
+              size: 64,
+              color: NeonTheme.warningOrange,
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Loading Progression Path...',
-            style: TextStyle(
-              color: NeonTheme.textSecondary,
-              fontSize: 16,
+            const SizedBox(height: 16),
+            Text(
+              _hasNetworkError ? 'Connection Failed' : 'Error Loading Progression',
+              style: TextStyle(
+                fontFamily: 'Orbitron',
+                color: NeonTheme.warningOrange,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Unknown error occurred',
+              style: TextStyle(
+                color: NeonTheme.textSecondary,
+                fontSize: 14,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: _retryInitialization,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: NeonTheme.primaryNeon.withValues(alpha: 0.1),
+                    foregroundColor: NeonTheme.primaryNeon,
+                    side: BorderSide(color: NeonTheme.primaryNeon),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('Retry'),
+                    ],
+                  ),
+                ),
+                if (_hasNetworkError) ...[
+                  const SizedBox(width: 16),
+                  TextButton(
+                    onPressed: _useOfflineData,
+                    style: TextButton.styleFrom(
+                      foregroundColor: NeonTheme.textSecondary,
+                    ),
+                    child: const Text('Use Offline Data'),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Build error state
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: NeonTheme.warningOrange,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Error Loading Progression',
-            style: TextStyle(
-              color: NeonTheme.warningOrange,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _errorMessage ?? 'Unknown error occurred',
-            style: TextStyle(
-              color: NeonTheme.textSecondary,
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _errorMessage = null;
-                _isLoading = true;
-              });
-              _initializeScreen();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: NeonTheme.primaryNeon.withValues(alpha: 0.1),
-              foregroundColor: NeonTheme.primaryNeon,
-              side: BorderSide(color: NeonTheme.primaryNeon),
-            ),
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
+  /// Build empty state for players with no unlocked achievements
+  Widget _buildEmptyState() {
+    return ProgressionEmptyState(
+      screenSize: _screenSize.isEmpty ? MediaQuery.of(context).size : _screenSize,
+      onStartJourney: _handleStartJourney,
+    );
+  }
+
+  /// Build celebration state for 100% completion
+  Widget _buildCelebrationState() {
+    final achievements = _integrationController.currentAchievements;
+    return ProgressionCelebrationState(
+      screenSize: _screenSize.isEmpty ? MediaQuery.of(context).size : _screenSize,
+      totalAchievements: achievements.length,
+      onContinue: _handleCelebrationContinue,
     );
   }
 
