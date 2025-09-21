@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'customization_screen.dart';
-import 'achievements_screen.dart';
+import 'achievements_progression_screen.dart';
 import 'leaderboard_screen.dart';
 import '../../game/managers/customization_manager.dart';
 import '../../game/managers/achievement_manager.dart';
@@ -241,7 +241,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObse
                     _isInitialized ? () {
                       Navigator.of(context).push(
                         TransitionManager.scaleTransition(
-                          AchievementsScreen(
+                          AchievementsProgressionScreen(
                             achievementManager: _achievementManager,
                           ),
                         ),
