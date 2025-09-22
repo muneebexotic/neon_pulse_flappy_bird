@@ -9,6 +9,8 @@ import 'managers/pulse_manager.dart';
 import 'managers/audio_manager.dart';
 import 'managers/power_up_manager.dart';
 import 'managers/customization_manager.dart';
+import 'managers/achievement_manager.dart';
+import 'managers/notification_manager.dart';
 import 'managers/settings_manager.dart';
 import 'managers/haptic_manager.dart';
 import 'managers/accessibility_manager.dart';
@@ -46,6 +48,9 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   
   // Customization system
   final CustomizationManager _customizationManager = CustomizationManager();
+  
+  // Achievement system
+  late final AchievementManager _achievementManager;
   
   // Settings system
   final SettingsManager _settingsManager = SettingsManager();
@@ -105,6 +110,10 @@ Future<void> onLoad() async {
   
   // Initialize customization system
   await _customizationManager.initialize();
+  
+  // Initialize achievement system (depends on customization manager)
+  _achievementManager = AchievementManager(_customizationManager, NotificationManager());
+  await _achievementManager.initialize();
   
   // Load high score from local storage
   await gameState.loadHighScore();
@@ -569,6 +578,9 @@ Future<void> onLoad() async {
   /// Get customization manager for UI access
   CustomizationManager get customizationManager => _customizationManager;
   
+  /// Get achievement manager for UI access
+  AchievementManager get achievementManager => _achievementManager;
+  
   /// Get settings manager for UI access
   SettingsManager get settingsManager => _settingsManager;
   
@@ -586,14 +598,8 @@ Future<void> onLoad() async {
   
   /// Check for newly unlocked skins based on current score
   Future<void> _checkSkinUnlocks() async {
-    final newlyUnlocked = await _customizationManager.checkAndUnlockSkins(gameState.currentScore);
-    
-    if (newlyUnlocked.isNotEmpty) {
-      for (final skin in newlyUnlocked) {
-        debugPrint('New skin unlocked: ${skin.name}');
-        // TODO: Show unlock notification in UI
-      }
-    }
+    // Use AchievementManager to handle skin unlocks with notifications
+    await _achievementManager.updateGameStatistics(score: gameState.currentScore);
   }
   
   /// Update game statistics and achievements at end of game
@@ -607,21 +613,14 @@ Future<void> onLoad() async {
     // Calculate survival time (would need to track this)
     final survivalTime = _calculateSurvivalTime();
     
-    // Update statistics and check achievements
-    final newAchievements = await _customizationManager.updateStatistics(
+    // Update statistics and check achievements through AchievementManager
+    await _achievementManager.updateGameStatistics(
       score: gameState.currentScore,
       gamesPlayed: 1,
       pulseUsage: pulseUsageThisGame,
       powerUpsCollected: powerUpsThisGame,
       survivalTime: survivalTime,
     );
-    
-    if (newAchievements.isNotEmpty) {
-      for (final achievement in newAchievements) {
-        debugPrint('Achievement unlocked: ${achievement.name}');
-        // TODO: Show achievement notification in UI
-      }
-    }
   }
   
   /// Calculate survival time for this game session
