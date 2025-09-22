@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flame/game.dart';
@@ -6,12 +7,14 @@ import '../../models/game_state.dart';
 import '../../models/achievement.dart';
 import '../../models/bird_skin.dart';
 import '../../game/managers/achievement_manager.dart';
+import '../../game/managers/achievement_event_manager.dart';
 import '../../game/managers/customization_manager.dart';
 import '../../game/managers/notification_manager.dart';
 import '../../services/leaderboard_integration_service.dart';
 import '../components/game_hud.dart';
 import '../components/pause_overlay.dart';
 import '../components/achievement_notification.dart';
+import '../components/in_game_notification_overlay.dart';
 import 'game_over_screen.dart';
 import 'settings_screen.dart';
 import 'customization_screen.dart';
@@ -49,6 +52,14 @@ class _GameScreenState extends State<GameScreen>
   // Screenshot functionality
   final GlobalKey _screenshotKey = GlobalKey();
   
+  // In-game notification overlay
+  final GlobalKey<InGameNotificationOverlayState> _notificationOverlayKey = 
+      InGameNotificationOverlay.createKey();
+  
+  // Achievement event subscriptions
+  StreamSubscription<AchievementProgressEvent>? _progressSubscription;
+  StreamSubscription<AchievementUnlockedEvent>? _unlockSubscription;
+  
   // Game statistics tracking
   DateTime? _gameStartTime;
   int _jumpCount = 0;
@@ -73,12 +84,22 @@ class _GameScreenState extends State<GameScreen>
       setState(() {
         _pendingAchievements.add(achievement);
       });
+      
+      // Show in-game notification during gameplay
+      if (game.hasLoaded && game.gameState.status == GameStatus.playing) {
+        _notificationOverlayKey.showAchievementUnlock(achievement);
+      }
     };
     
     _achievementManager.onSkinUnlocked = (skin) {
       setState(() {
         _pendingSkins.add(skin);
       });
+      
+      // Show in-game notification during gameplay
+      if (game.hasLoaded && game.gameState.status == GameStatus.playing) {
+        _notificationOverlayKey.showSkinUnlock(skin);
+      }
     };
     
     // Add observer for app lifecycle events
@@ -103,6 +124,10 @@ class _GameScreenState extends State<GameScreen>
     // Only stop music when app is actually being terminated
     // The main menu will handle background music management
     
+    // Cancel achievement event subscriptions
+    _progressSubscription?.cancel();
+    _unlockSubscription?.cancel();
+    
     WidgetsBinding.instance.removeObserver(this);
     _gameStateController.dispose();
     super.dispose();
@@ -113,6 +138,35 @@ class _GameScreenState extends State<GameScreen>
       await _customizationManager.initialize();
     }
     await _achievementManager.initialize();
+    
+    // Set up achievement event listeners for in-game notifications
+    _setupAchievementEventListeners();
+  }
+  
+  void _setupAchievementEventListeners() {
+    // Get the achievement event manager
+    final eventManager = _achievementManager.eventManager;
+    
+    // Listen for achievement progress events to show milestone notifications
+    _progressSubscription = eventManager.subscribeToAllProgress((progressEvent) {
+      if (game.hasLoaded && 
+          game.gameState.status == GameStatus.playing && 
+          !game.gameState.isPaused) {
+        _notificationOverlayKey.showProgressMilestone(
+          progressEvent.achievement, 
+          progressEvent.newProgress,
+        );
+      }
+    });
+    
+    // Listen for achievement unlock events (redundant with callbacks but ensures coverage)
+    _unlockSubscription = eventManager.subscribeToAllUnlocks((unlockEvent) {
+      if (game.hasLoaded && 
+          game.gameState.status == GameStatus.playing && 
+          !game.gameState.isPaused) {
+        _notificationOverlayKey.showAchievementUnlock(unlockEvent.achievement);
+      }
+    });
   }
 
   void _trackGameStart() {
@@ -237,6 +291,22 @@ class _GameScreenState extends State<GameScreen>
                   game.pauseGame();
                 }
               },
+            ),
+          
+          // In-game notification overlay - show during gameplay
+          if (game.hasLoaded && game.gameState.status == GameStatus.playing)
+            InGameNotificationOverlay(
+              key: _notificationOverlayKey,
+              isVisible: !game.gameState.isPaused,
+              onNotificationTapped: (notification) {
+                // Handle notification tap - could navigate to achievements screen
+                debugPrint('Notification tapped: ${notification.title}');
+              },
+              onAllNotificationsDismissed: () {
+                debugPrint('All in-game notifications dismissed');
+              },
+              maxSimultaneousNotifications: 2, // Limit to 2 for gameplay
+              autoDismiss: true,
             ),
           
           // Pause Overlay - show when game is paused

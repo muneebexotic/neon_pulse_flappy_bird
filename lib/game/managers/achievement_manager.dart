@@ -10,11 +10,13 @@ import '../../models/achievement.dart';
 import '../../models/bird_skin.dart';
 import 'customization_manager.dart';
 import 'notification_manager.dart';
+import 'achievement_event_manager.dart';
 
 /// Manages achievement notifications, social sharing, and leaderboard functionality
 class AchievementManager {
   final CustomizationManager _customizationManager;
   final NotificationManager _notificationManager;
+  final AchievementEventManager _eventManager;
   final List<Achievement> _pendingNotifications = [];
   final List<BirdSkin> _pendingUnlocks = [];
   
@@ -22,13 +24,94 @@ class AchievementManager {
   Function(Achievement)? onAchievementUnlocked;
   Function(BirdSkin)? onSkinUnlocked;
   
-  AchievementManager(this._customizationManager, this._notificationManager);
+  AchievementManager(this._customizationManager, this._notificationManager)
+      : _eventManager = AchievementEventManager.instance;
 
   /// Initialize the achievement manager
   Future<void> initialize() async {
     // Achievement manager relies on customization manager being initialized
     // This should be called after customization manager initialization
     await _notificationManager.initialize();
+  }
+
+  /// Update score progress in real-time during gameplay
+  Future<void> updateScoreProgress(int currentScore) async {
+    final oldStatistics = Map<String, int>.from(_customizationManager.gameStatistics);
+    final oldAchievements = List<Achievement>.from(_customizationManager.achievements);
+    
+    await _customizationManager.updateStatistics(score: currentScore);
+    
+    final newStatistics = _customizationManager.gameStatistics;
+    final newAchievements = _customizationManager.achievements;
+    
+    // Emit statistics update event
+    _eventManager.notifyStatisticsUpdated(
+      oldStatistics: oldStatistics,
+      newStatistics: newStatistics,
+    );
+    
+    // Check for progress updates in score-related achievements
+    _checkAndNotifyProgressUpdates(oldAchievements, newAchievements);
+  }
+
+  /// Update pulse usage progress in real-time during gameplay
+  Future<void> updatePulseUsage(int pulseCount) async {
+    final oldStatistics = Map<String, int>.from(_customizationManager.gameStatistics);
+    final oldAchievements = List<Achievement>.from(_customizationManager.achievements);
+    
+    await _customizationManager.updateStatistics(pulseUsage: pulseCount);
+    
+    final newStatistics = _customizationManager.gameStatistics;
+    final newAchievements = _customizationManager.achievements;
+    
+    // Emit statistics update event
+    _eventManager.notifyStatisticsUpdated(
+      oldStatistics: oldStatistics,
+      newStatistics: newStatistics,
+    );
+    
+    // Check for progress updates in pulse-related achievements
+    _checkAndNotifyProgressUpdates(oldAchievements, newAchievements);
+  }
+
+  /// Update power-up collection progress in real-time during gameplay
+  Future<void> updatePowerUpCollection(int powerUpCount) async {
+    final oldStatistics = Map<String, int>.from(_customizationManager.gameStatistics);
+    final oldAchievements = List<Achievement>.from(_customizationManager.achievements);
+    
+    await _customizationManager.updateStatistics(powerUpsCollected: powerUpCount);
+    
+    final newStatistics = _customizationManager.gameStatistics;
+    final newAchievements = _customizationManager.achievements;
+    
+    // Emit statistics update event
+    _eventManager.notifyStatisticsUpdated(
+      oldStatistics: oldStatistics,
+      newStatistics: newStatistics,
+    );
+    
+    // Check for progress updates in power-up related achievements
+    _checkAndNotifyProgressUpdates(oldAchievements, newAchievements);
+  }
+
+  /// Update survival time progress in real-time during gameplay
+  Future<void> updateSurvivalTime(int seconds) async {
+    final oldStatistics = Map<String, int>.from(_customizationManager.gameStatistics);
+    final oldAchievements = List<Achievement>.from(_customizationManager.achievements);
+    
+    await _customizationManager.updateStatistics(survivalTime: seconds);
+    
+    final newStatistics = _customizationManager.gameStatistics;
+    final newAchievements = _customizationManager.achievements;
+    
+    // Emit statistics update event
+    _eventManager.notifyStatisticsUpdated(
+      oldStatistics: oldStatistics,
+      newStatistics: newStatistics,
+    );
+    
+    // Check for progress updates in survival-related achievements
+    _checkAndNotifyProgressUpdates(oldAchievements, newAchievements);
   }
 
   /// Update game statistics and handle achievement unlocks
@@ -39,6 +122,9 @@ class AchievementManager {
     int? powerUpsCollected,
     int? survivalTime,
   }) async {
+    final oldStatistics = Map<String, int>.from(_customizationManager.gameStatistics);
+    final oldAchievements = List<Achievement>.from(_customizationManager.achievements);
+    
     // Update statistics through customization manager
     final newAchievements = await _customizationManager.updateStatistics(
       score: score,
@@ -47,6 +133,18 @@ class AchievementManager {
       powerUpsCollected: powerUpsCollected,
       survivalTime: survivalTime,
     );
+
+    final newStatistics = _customizationManager.gameStatistics;
+    final updatedAchievements = _customizationManager.achievements;
+    
+    // Emit statistics update event
+    _eventManager.notifyStatisticsUpdated(
+      oldStatistics: oldStatistics,
+      newStatistics: newStatistics,
+    );
+    
+    // Check for progress updates in all achievements
+    _checkAndNotifyProgressUpdates(oldAchievements, updatedAchievements);
 
     // Check for newly unlocked skins based on score
     List<BirdSkin> newSkins = [];
@@ -58,6 +156,9 @@ class AchievementManager {
     for (final achievement in newAchievements) {
       _pendingNotifications.add(achievement);
       onAchievementUnlocked?.call(achievement);
+      
+      // Emit achievement unlocked event
+      _notifyAchievementUnlocked(achievement);
       
       // Show system notification for achievement unlock
       await _notificationManager.showAchievementNotification(achievement);
@@ -256,6 +357,47 @@ class AchievementManager {
   List<BirdSkin> get pendingSkinUnlocks => 
       List.unmodifiable(_pendingUnlocks);
 
+  /// Notify achievement progress update
+  void _notifyProgressUpdate(Achievement achievement, double oldProgress) {
+    _eventManager.notifyAchievementProgress(
+      achievement: achievement,
+      oldProgress: oldProgress,
+      newProgress: achievement.progressPercentage,
+    );
+  }
+
+  /// Notify achievement unlocked
+  void _notifyAchievementUnlocked(Achievement achievement) {
+    _eventManager.notifyAchievementUnlocked(achievement);
+  }
+
+  /// Check for progress updates and notify about changes
+  void _checkAndNotifyProgressUpdates(
+    List<Achievement> oldAchievements,
+    List<Achievement> newAchievements,
+  ) {
+    // Create a map of old achievements for quick lookup
+    final oldAchievementMap = <String, Achievement>{};
+    for (final achievement in oldAchievements) {
+      oldAchievementMap[achievement.id] = achievement;
+    }
+
+    // Check each new achievement for progress changes
+    for (final newAchievement in newAchievements) {
+      final oldAchievement = oldAchievementMap[newAchievement.id];
+      
+      if (oldAchievement != null) {
+        final oldProgress = oldAchievement.progressPercentage;
+        final newProgress = newAchievement.progressPercentage;
+        
+        // Only notify if progress actually changed
+        if ((newProgress - oldProgress).abs() > 0.001) {
+          _notifyProgressUpdate(newAchievement, oldProgress);
+        }
+      }
+    }
+  }
+
   /// Check and show milestone notifications based on score
   Future<void> _checkAndShowMilestoneNotifications(int score) async {
     final milestones = [
@@ -322,6 +464,9 @@ class AchievementManager {
   Future<void> cancelAllNotifications() async {
     await _notificationManager.cancelAllNotifications();
   }
+  
+  /// Get the achievement event manager for external listeners
+  AchievementEventManager get eventManager => _eventManager;
 }
 
 /// Represents a leaderboard entry for personal bests

@@ -35,6 +35,9 @@ class PowerUpManager extends Component {
   // Collection tracking
   int totalPowerUpsCollected = 0;
   
+  // Callback for real-time achievement tracking
+  Function()? onPowerUpCollected;
+  
   PowerUpManager({
     required this.worldWidth,
     required this.worldHeight,
@@ -209,6 +212,9 @@ class PowerUpManager extends Component {
     // Add new effect
     activeEffects.add(effect);
     
+    // Notify game about power-up collection for real-time achievement tracking
+    _notifyPowerUpCollected();
+    
     debugPrint('Activated ${powerUp.type.name} power-up for ${powerUp.duration} seconds (Total collected: $totalPowerUpsCollected)');
   }
   
@@ -303,6 +309,11 @@ class PowerUpManager extends Component {
   
   /// Get total power-ups collected for this game session
   int getTotalPowerUpsCollected() => totalPowerUpsCollected;
+  
+  /// Notify game about power-up collection for real-time achievement tracking
+  void _notifyPowerUpCollected() {
+    onPowerUpCollected?.call();
+  }
 }
 
 /// Represents an active power-up effect

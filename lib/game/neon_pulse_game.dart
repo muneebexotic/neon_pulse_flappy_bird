@@ -61,6 +61,11 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   final PoolManager _poolManager = PoolManager();
   final PerformanceTestSuite _performanceTestSuite = PerformanceTestSuite();
   
+  // Real-time achievement tracking
+  double _survivalTime = 0.0;
+  double _lastAchievementUpdateTime = 0.0;
+  static const double _achievementUpdateInterval = 1.0; // Update achievements every second
+  
   @override
   Color backgroundColor() => NeonColors.deepSpace;
 
@@ -295,6 +300,10 @@ Future<void> onLoad() async {
       obstacleManager: obstacleManager,
       gameState: gameState,
     );
+    
+    // Set up real-time achievement tracking callback
+    powerUpManager.onPowerUpCollected = _updateRealTimePowerUpProgress;
+    
     add(powerUpManager);
     
     debugPrint('Game components initialized');
@@ -344,6 +353,9 @@ Future<void> onLoad() async {
       endGame();
       return;
     }
+    
+    // Update survival time for real-time achievement tracking
+    _survivalTime += dt;
     
     // Update power-up effects in game state
     gameState.updatePowerUpEffects(
@@ -403,6 +415,16 @@ Future<void> onLoad() async {
       
       // Check for newly unlocked skins
       _checkSkinUnlocks();
+      
+      // Update real-time score progress for achievements
+      _updateRealTimeScoreProgress();
+    }
+    
+    // Update real-time achievement progress periodically
+    _lastAchievementUpdateTime += dt;
+    if (_lastAchievementUpdateTime >= _achievementUpdateInterval) {
+      _updateRealTimeAchievementProgress();
+      _lastAchievementUpdateTime = 0.0;
     }
   }
 
@@ -477,6 +499,10 @@ Future<void> onLoad() async {
   void _handlePulseActivation() {
     if (pulseManager.tryActivatePulse()) {
       _audioManager.playSoundEffect(SoundEffect.pulse);
+      
+      // Update real-time pulse usage progress for achievements
+      _updateRealTimePulseProgress();
+      
       debugPrint('Pulse activated successfully');
     } else {
       debugPrint('Pulse activation failed - still on cooldown');
@@ -509,6 +535,9 @@ Future<void> onLoad() async {
     background.setGridAnimationSpeed(0.5);
     background.setColorShiftSpeed(0.3);
     
+    // Reset real-time achievement tracking
+    _survivalTime = 0.0;
+    _lastAchievementUpdateTime = 0.0;
     
     debugPrint('Game started - Status: ${gameState.status}');
   }
@@ -596,6 +625,35 @@ Future<void> onLoad() async {
   /// Get performance test suite for UI access
   PerformanceTestSuite get performanceTestSuite => _performanceTestSuite;
   
+  /// Update real-time score progress for achievements
+  Future<void> _updateRealTimeScoreProgress() async {
+    await _achievementManager.updateScoreProgress(gameState.currentScore);
+  }
+  
+  /// Update real-time pulse usage progress for achievements
+  Future<void> _updateRealTimePulseProgress() async {
+    final totalPulseUsage = pulseManager.getTotalPulseUsage();
+    await _achievementManager.updatePulseUsage(totalPulseUsage);
+  }
+  
+  /// Update real-time power-up collection progress for achievements
+  Future<void> _updateRealTimePowerUpProgress() async {
+    final totalPowerUpsCollected = powerUpManager.getTotalPowerUpsCollected();
+    await _achievementManager.updatePowerUpCollection(totalPowerUpsCollected);
+  }
+  
+  /// Update real-time survival time progress for achievements
+  Future<void> _updateRealTimeSurvivalProgress() async {
+    final survivalTimeSeconds = _survivalTime.floor();
+    await _achievementManager.updateSurvivalTime(survivalTimeSeconds);
+  }
+  
+  /// Update all real-time achievement progress (called periodically)
+  Future<void> _updateRealTimeAchievementProgress() async {
+    await _updateRealTimeSurvivalProgress();
+    await _updateRealTimePowerUpProgress();
+  }
+
   /// Check for newly unlocked skins based on current score
   Future<void> _checkSkinUnlocks() async {
     // Use AchievementManager to handle skin unlocks with notifications
