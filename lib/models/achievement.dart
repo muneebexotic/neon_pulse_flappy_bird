@@ -9,6 +9,8 @@ class Achievement {
   final Color iconColor;
   final int targetValue;
   final AchievementType type;
+  final AchievementTrackingType trackingType;
+  final bool resetsOnFailure;
   final String? rewardSkinId;
   final bool isUnlocked;
   final int currentProgress;
@@ -21,6 +23,8 @@ class Achievement {
     required this.iconColor,
     required this.targetValue,
     required this.type,
+    required this.trackingType,
+    this.resetsOnFailure = false,
     this.rewardSkinId,
     this.isUnlocked = false,
     this.currentProgress = 0,
@@ -39,6 +43,8 @@ class Achievement {
       iconColor: iconColor,
       targetValue: targetValue,
       type: type,
+      trackingType: trackingType,
+      resetsOnFailure: resetsOnFailure,
       rewardSkinId: rewardSkinId,
       isUnlocked: isUnlocked ?? this.isUnlocked,
       currentProgress: currentProgress ?? this.currentProgress,
@@ -67,6 +73,8 @@ class Achievement {
       'iconColor': iconColor.toARGB32(),
       'targetValue': targetValue,
       'type': type.toString(),
+      'trackingType': trackingType.toString(),
+      'resetsOnFailure': resetsOnFailure,
       'rewardSkinId': rewardSkinId,
       'isUnlocked': isUnlocked,
       'currentProgress': currentProgress,
@@ -88,6 +96,11 @@ class Achievement {
       type: AchievementType.values.firstWhere(
         (e) => e.toString() == json['type'],
       ),
+      trackingType: AchievementTrackingType.values.firstWhere(
+        (e) => e.toString() == json['trackingType'],
+        orElse: () => AchievementTrackingType.cumulative, // Default for backward compatibility
+      ),
+      resetsOnFailure: json['resetsOnFailure'] ?? false,
       rewardSkinId: json['rewardSkinId'],
       isUnlocked: json['isUnlocked'] ?? false,
       currentProgress: json['currentProgress'] ?? 0,
@@ -105,6 +118,14 @@ enum AchievementType {
   survival,     // Based on survival time
 }
 
+/// Achievement tracking behavior types
+enum AchievementTrackingType {
+  cumulative,   // Progress persists across runs (e.g., total score, games played)
+  singleRun,    // Progress resets on failure (e.g., single game score, survival time)
+  milestone,    // One-time unlock (e.g., first achievement)
+  streak,       // Consecutive achievement (e.g., win streak)
+}
+
 /// Default achievements available in the game
 class DefaultAchievements {
   static const List<Achievement> achievements = [
@@ -116,6 +137,8 @@ class DefaultAchievements {
       iconColor: Colors.cyan,
       targetValue: 1,
       type: AchievementType.score,
+      trackingType: AchievementTrackingType.singleRun,
+      resetsOnFailure: true,
     ),
     Achievement(
       id: 'pulse_master',
@@ -125,6 +148,7 @@ class DefaultAchievements {
       iconColor: Colors.yellow,
       targetValue: 50,
       type: AchievementType.pulseUsage,
+      trackingType: AchievementTrackingType.cumulative,
       rewardSkinId: 'pulse_master_skin',
     ),
     Achievement(
@@ -135,6 +159,8 @@ class DefaultAchievements {
       iconColor: Color(0xFFFFD700), // Gold color
       targetValue: 100,
       type: AchievementType.score,
+      trackingType: AchievementTrackingType.singleRun,
+      resetsOnFailure: true,
       rewardSkinId: 'golden_bird',
     ),
     Achievement(
@@ -145,6 +171,7 @@ class DefaultAchievements {
       iconColor: Colors.green,
       targetValue: 25,
       type: AchievementType.powerUps,
+      trackingType: AchievementTrackingType.cumulative,
       rewardSkinId: 'energy_bird',
     ),
     Achievement(
@@ -155,6 +182,7 @@ class DefaultAchievements {
       iconColor: Colors.orange,
       targetValue: 100,
       type: AchievementType.gamesPlayed,
+      trackingType: AchievementTrackingType.cumulative,
       rewardSkinId: 'endurance_bird',
     ),
   ];

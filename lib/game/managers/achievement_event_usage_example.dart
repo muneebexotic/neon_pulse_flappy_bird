@@ -79,6 +79,8 @@ class AchievementEventUsageExample {
       iconColor: Colors.yellow,
       targetValue: 100,
       type: AchievementType.score,
+      trackingType: AchievementTrackingType.singleRun,
+      resetsOnFailure: true,
       currentProgress: 75,
     );
 
@@ -96,9 +98,10 @@ class AchievementEventUsageExample {
       name: 'Unlocked Achievement',
       description: 'This achievement was just unlocked',
       icon: Icons.emoji_events,
-      iconColor: Colors.gold,
+      iconColor: Color(0xFFFFD700),
       targetValue: 100,
       type: AchievementType.score,
+      trackingType: AchievementTrackingType.milestone,
       currentProgress: 100,
       isUnlocked: true,
     );

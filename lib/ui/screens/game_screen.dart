@@ -181,15 +181,23 @@ class _GameScreenState extends State<GameScreen>
     if (_gameStartTime != null) {
       final endTime = DateTime.now();
       final survivalTime = endTime.difference(_gameStartTime!).inSeconds;
+      final finalScore = game.gameState.currentScore;
       
       // Update achievement statistics
       _achievementManager.updateGameStatistics(
-        score: game.gameState.currentScore,
+        score: finalScore,
         gamesPlayed: 1,
         pulseUsage: _pulseUsageCount,
         powerUpsCollected: _powerUpsCollectedCount,
         survivalTime: survivalTime,
       );
+      
+      // Reset single-run achievements if game ended unsuccessfully
+      // Consider a game unsuccessful if the score is very low (less than 5 points)
+      // This indicates the player crashed early and didn't complete a meaningful run
+      if (finalScore < 5) {
+        _achievementManager.resetSingleRunProgress();
+      }
     }
   }
 

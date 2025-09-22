@@ -465,6 +465,38 @@ class AchievementManager {
     await _notificationManager.cancelAllNotifications();
   }
   
+  /// Reset progress for single-run achievements when game ends unsuccessfully
+  Future<void> resetSingleRunProgress() async {
+    bool hasChanges = false;
+    
+    // Get a copy of achievements to avoid modification during iteration
+    final achievements = List<Achievement>.from(_customizationManager.achievements);
+    
+    for (final achievement in achievements) {
+      // Reset progress for single-run achievements that reset on failure
+      if (achievement.trackingType == AchievementTrackingType.singleRun && 
+          achievement.resetsOnFailure && 
+          achievement.currentProgress > 0 && 
+          !achievement.isUnlocked) {
+        
+        // Reset progress to 0
+        _customizationManager.updateAchievementProgress(achievement.id, 0);
+        hasChanges = true;
+        
+        // Emit progress reset event
+        _eventManager.notifyAchievementProgress(
+          achievement: achievement.copyWith(currentProgress: 0),
+          oldProgress: achievement.progressPercentage,
+          newProgress: 0.0,
+        );
+      }
+    }
+    
+    if (hasChanges) {
+      await _customizationManager.saveAchievements();
+    }
+  }
+
   /// Get the achievement event manager for external listeners
   AchievementEventManager get eventManager => _eventManager;
 }

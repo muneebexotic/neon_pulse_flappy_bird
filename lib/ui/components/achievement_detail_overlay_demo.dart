@@ -3,6 +3,7 @@ import '../../models/achievement.dart';
 import '../../models/bird_skin.dart';
 import '../../game/managers/achievement_manager.dart';
 import '../../game/managers/customization_manager.dart';
+import '../../game/managers/notification_manager.dart';
 import 'achievement_detail_overlay.dart';
 
 /// Demo screen showing how to use the AchievementDetailOverlay
@@ -26,6 +27,7 @@ class _AchievementDetailOverlayDemoState extends State<AchievementDetailOverlayD
       iconColor: Colors.cyan,
       targetValue: 1,
       type: AchievementType.score,
+      trackingType: AchievementTrackingType.milestone,
       isUnlocked: true,
       currentProgress: 1,
     ),
@@ -37,6 +39,7 @@ class _AchievementDetailOverlayDemoState extends State<AchievementDetailOverlayD
       iconColor: Colors.yellow,
       targetValue: 50,
       type: AchievementType.pulseUsage,
+      trackingType: AchievementTrackingType.cumulative,
       rewardSkinId: 'pulse_master_skin',
       isUnlocked: false,
       currentProgress: 25,
@@ -48,6 +51,8 @@ class _AchievementDetailOverlayDemoState extends State<AchievementDetailOverlayD
       icon: Icons.star,
       iconColor: Color(0xFFFFD700),
       targetValue: 100,
+      trackingType: AchievementTrackingType.singleRun,
+      resetsOnFailure: true,
       type: AchievementType.score,
       rewardSkinId: 'golden_bird',
       isUnlocked: false,
@@ -80,7 +85,7 @@ class _AchievementDetailOverlayDemoState extends State<AchievementDetailOverlayD
   @override
   void initState() {
     super.initState();
-    achievementManager = AchievementManager(CustomizationManager());
+    achievementManager = AchievementManager(CustomizationManager(), NotificationManager());
   }
 
   void _showAchievementOverlay(Achievement achievement) {

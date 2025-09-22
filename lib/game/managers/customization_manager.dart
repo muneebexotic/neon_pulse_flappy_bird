@@ -140,33 +140,43 @@ class CustomizationManager {
       final achievement = _achievements[i];
       if (achievement.isUnlocked) continue;
       
-      int currentProgress = 0;
+      int currentProgress = _calculateAchievementProgress(achievement);
       
-      switch (achievement.type) {
-        case AchievementType.score:
-          currentProgress = _gameStatistics['highScore'] ?? 0;
+      // Update progress based on tracking type
+      int newProgress = currentProgress;
+      
+      switch (achievement.trackingType) {
+        case AchievementTrackingType.cumulative:
+          // For cumulative achievements, always use the calculated progress
+          newProgress = currentProgress;
           break;
-        case AchievementType.totalScore:
-          currentProgress = _gameStatistics['totalScore'] ?? 0;
+        case AchievementTrackingType.singleRun:
+          // For single-run achievements, only update if the new progress is higher
+          // This prevents overriding manual resets and allows progress during gameplay
+          if (currentProgress > achievement.currentProgress) {
+            newProgress = currentProgress;
+          } else {
+            // Keep existing progress (don't override resets)
+            newProgress = achievement.currentProgress;
+          }
           break;
-        case AchievementType.gamesPlayed:
-          currentProgress = _gameStatistics['gamesPlayed'] ?? 0;
+        case AchievementTrackingType.milestone:
+          // For milestone achievements, it's either 0 or target value
+          newProgress = currentProgress >= achievement.targetValue 
+              ? achievement.targetValue 
+              : 0;
           break;
-        case AchievementType.pulseUsage:
-          currentProgress = _gameStatistics['pulseUsage'] ?? 0;
-          break;
-        case AchievementType.powerUps:
-          currentProgress = _gameStatistics['powerUpsCollected'] ?? 0;
-          break;
-        case AchievementType.survival:
-          currentProgress = _gameStatistics['totalSurvivalTime'] ?? 0;
+        case AchievementTrackingType.streak:
+          // For streak achievements, use calculated progress
+          // (streak logic would be implemented in the calling code)
+          newProgress = currentProgress;
           break;
       }
       
       // Update progress
       _achievements[i] = achievement.copyWith(
-        currentProgress: currentProgress,
-        isUnlocked: currentProgress >= achievement.targetValue,
+        currentProgress: newProgress,
+        isUnlocked: newProgress >= achievement.targetValue,
       );
       
       // Check if newly unlocked
@@ -185,6 +195,24 @@ class CustomizationManager {
     }
     
     return newlyUnlocked;
+  }
+
+  /// Calculate achievement progress based on achievement type
+  int _calculateAchievementProgress(Achievement achievement) {
+    switch (achievement.type) {
+      case AchievementType.score:
+        return _gameStatistics['highScore'] ?? 0;
+      case AchievementType.totalScore:
+        return _gameStatistics['totalScore'] ?? 0;
+      case AchievementType.gamesPlayed:
+        return _gameStatistics['gamesPlayed'] ?? 0;
+      case AchievementType.pulseUsage:
+        return _gameStatistics['pulseUsage'] ?? 0;
+      case AchievementType.powerUps:
+        return _gameStatistics['powerUpsCollected'] ?? 0;
+      case AchievementType.survival:
+        return _gameStatistics['totalSurvivalTime'] ?? 0;
+    }
   }
 
   /// Unlock a reward skin from achievement
@@ -316,6 +344,24 @@ class CustomizationManager {
       _achievements = DefaultAchievements.achievements.toList();
       await _saveAchievements();
     }
+  }
+
+  /// Update achievement progress directly
+  void updateAchievementProgress(String achievementId, int newProgress) {
+    for (int i = 0; i < _achievements.length; i++) {
+      if (_achievements[i].id == achievementId) {
+        _achievements[i] = _achievements[i].copyWith(
+          currentProgress: newProgress,
+          isUnlocked: newProgress >= _achievements[i].targetValue,
+        );
+        break;
+      }
+    }
+  }
+
+  /// Save achievements to storage (made public for AchievementManager)
+  Future<void> saveAchievements() async {
+    await _saveAchievements();
   }
 
   /// Save achievements to storage
