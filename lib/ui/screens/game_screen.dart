@@ -76,8 +76,8 @@ class _GameScreenState extends State<GameScreen>
     _notificationManager = NotificationManager();
     _achievementManager = widget.achievementManager ?? AchievementManager(_customizationManager, _notificationManager);
     
-    // Initialize game
-    game = NeonPulseGame();
+    // Initialize game with the shared achievement manager
+    game = NeonPulseGame(achievementManager: _achievementManager);
     
     // Set up achievement callbacks
     _achievementManager.onAchievementUnlocked = (achievement) {

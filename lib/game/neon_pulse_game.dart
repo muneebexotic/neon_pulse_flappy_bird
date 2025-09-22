@@ -51,6 +51,7 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   
   // Achievement system
   late final AchievementManager _achievementManager;
+  bool _isAchievementManagerInitialized = false;
   
   // Settings system
   final SettingsManager _settingsManager = SettingsManager();
@@ -70,8 +71,12 @@ class NeonPulseGame extends FlameGame with HasCollisionDetection {
   Color backgroundColor() => NeonColors.deepSpace;
 
   /// Constructor - initialize gameState immediately for UI access
-  NeonPulseGame() {
+  NeonPulseGame({AchievementManager? achievementManager}) {
     gameState = GameState();
+    if (achievementManager != null) {
+      _achievementManager = achievementManager;
+      _isAchievementManagerInitialized = true;
+    }
   }
 
   @override
@@ -117,7 +122,10 @@ Future<void> onLoad() async {
   await _customizationManager.initialize();
   
   // Initialize achievement system (depends on customization manager)
-  _achievementManager = AchievementManager(_customizationManager, NotificationManager());
+  // Only create a new achievement manager if one wasn't provided
+  if (!_isAchievementManagerInitialized) {
+    _achievementManager = AchievementManager(_customizationManager, NotificationManager());
+  }
   await _achievementManager.initialize();
   
   // Load high score from local storage

@@ -83,13 +83,8 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
   void _updateAchievementDisplay(Achievement updatedAchievement) {
     if (!mounted) return;
 
-    setState(() {
-      // Find and update the specific achievement in the list
-      final index = _achievements.indexWhere((a) => a.id == updatedAchievement.id);
-      if (index != -1) {
-        _achievements[index] = updatedAchievement;
-      }
-    });
+    // Always refresh all achievements from the manager to ensure we have the latest data
+    _refreshAllAchievements();
   }
 
   /// Refresh all achievements from the manager
@@ -97,7 +92,8 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
     if (!mounted) return;
 
     setState(() {
-      _achievements = widget.achievementManager.achievements;
+      // Get fresh achievement data from the manager
+      _achievements = List<Achievement>.from(widget.achievementManager.achievements);
     });
   }
 
