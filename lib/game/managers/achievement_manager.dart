@@ -9,10 +9,12 @@ import 'package:path_provider/path_provider.dart';
 import '../../models/achievement.dart';
 import '../../models/bird_skin.dart';
 import 'customization_manager.dart';
+import 'notification_manager.dart';
 
 /// Manages achievement notifications, social sharing, and leaderboard functionality
 class AchievementManager {
   final CustomizationManager _customizationManager;
+  final NotificationManager _notificationManager;
   final List<Achievement> _pendingNotifications = [];
   final List<BirdSkin> _pendingUnlocks = [];
   
@@ -20,12 +22,13 @@ class AchievementManager {
   Function(Achievement)? onAchievementUnlocked;
   Function(BirdSkin)? onSkinUnlocked;
   
-  AchievementManager(this._customizationManager);
+  AchievementManager(this._customizationManager, this._notificationManager);
 
   /// Initialize the achievement manager
   Future<void> initialize() async {
     // Achievement manager relies on customization manager being initialized
     // This should be called after customization manager initialization
+    await _notificationManager.initialize();
   }
 
   /// Update game statistics and handle achievement unlocks
@@ -55,12 +58,27 @@ class AchievementManager {
     for (final achievement in newAchievements) {
       _pendingNotifications.add(achievement);
       onAchievementUnlocked?.call(achievement);
+      
+      // Show system notification for achievement unlock
+      await _notificationManager.showAchievementNotification(achievement);
     }
 
     // Queue notifications for newly unlocked skins
     for (final skin in newSkins) {
       _pendingUnlocks.add(skin);
       onSkinUnlocked?.call(skin);
+      
+      // Show system notification for skin unlock
+      await _notificationManager.showProgressionNotification(
+        title: '✨ New Skin Unlocked!',
+        message: 'You\'ve unlocked the ${skin.name} skin! Check it out in customization.',
+        payload: 'skin:${skin.id}',
+      );
+    }
+
+    // Check for milestone notifications
+    if (score != null) {
+      await _checkAndShowMilestoneNotifications(score);
     }
   }
 
@@ -237,6 +255,73 @@ class AchievementManager {
   /// Get pending skin unlock notifications
   List<BirdSkin> get pendingSkinUnlocks => 
       List.unmodifiable(_pendingUnlocks);
+
+  /// Check and show milestone notifications based on score
+  Future<void> _checkAndShowMilestoneNotifications(int score) async {
+    final milestones = [
+      {'score': 10, 'title': 'First Steps', 'message': 'Great start! You\'re getting the hang of it!'},
+      {'score': 25, 'title': 'Getting Better', 'message': 'Nice progress! Keep up the momentum!'},
+      {'score': 50, 'title': 'Halfway Hero', 'message': 'You\'re really improving! Halfway to mastery!'},
+      {'score': 100, 'title': 'Century Club', 'message': 'Incredible! You\'ve joined the century club!'},
+      {'score': 200, 'title': 'Double Century', 'message': 'Amazing skills! You\'re becoming a master!'},
+      {'score': 500, 'title': 'Elite Player', 'message': 'Outstanding! You\'re among the elite players!'},
+      {'score': 1000, 'title': 'Legendary', 'message': 'Legendary performance! You\'re a true master!'},
+    ];
+
+    for (final milestone in milestones) {
+      final milestoneScore = milestone['score'] as int;
+      if (score == milestoneScore) {
+        await _notificationManager.showMilestoneNotification(
+          score: score,
+          milestone: milestone['title'] as String,
+          customMessage: milestone['message'] as String,
+        );
+        break;
+      }
+    }
+  }
+
+  /// Show high score notification
+  Future<void> showHighScoreNotification(int newScore, int previousBest) async {
+    await _notificationManager.showHighScoreNotification(
+      newScore: newScore,
+      previousBest: previousBest,
+    );
+  }
+
+  /// Request notification permissions
+  Future<bool> requestNotificationPermissions() async {
+    return await _notificationManager.requestPermissions();
+  }
+
+  /// Check if notifications are enabled
+  Future<bool> areNotificationsEnabled() async {
+    return await _notificationManager.areNotificationsEnabled();
+  }
+
+  /// Get notification settings
+  Map<String, bool> get notificationSettings => 
+      _notificationManager.notificationSettings;
+
+  /// Update notification settings
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    await _notificationManager.setNotificationsEnabled(enabled);
+  }
+
+  /// Update achievement notification settings
+  Future<void> setAchievementNotificationsEnabled(bool enabled) async {
+    await _notificationManager.setAchievementNotificationsEnabled(enabled);
+  }
+
+  /// Update milestone notification settings
+  Future<void> setMilestoneNotificationsEnabled(bool enabled) async {
+    await _notificationManager.setMilestoneNotificationsEnabled(enabled);
+  }
+
+  /// Cancel all notifications
+  Future<void> cancelAllNotifications() async {
+    await _notificationManager.cancelAllNotifications();
+  }
 }
 
 /// Represents a leaderboard entry for personal bests

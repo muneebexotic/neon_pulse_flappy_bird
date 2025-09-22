@@ -72,6 +72,9 @@ dependencies:
   
   # Image caching for user avatars
   cached_network_image: ^3.3.0
+  
+  # Local notifications for achievements and milestones
+  flutter_local_notifications: ^17.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

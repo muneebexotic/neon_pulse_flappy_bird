@@ -8,6 +8,7 @@ import 'achievements_progression_screen.dart';
 import 'leaderboard_screen.dart';
 import '../../game/managers/customization_manager.dart';
 import '../../game/managers/achievement_manager.dart';
+import '../../game/managers/notification_manager.dart';
 import '../../game/managers/audio_manager.dart';
 import '../../providers/authentication_provider.dart';
 import '../../services/leaderboard_integration_service.dart';
@@ -23,13 +24,14 @@ class MainMenuScreen extends StatefulWidget {
 
 class _MainMenuScreenState extends State<MainMenuScreen> with WidgetsBindingObserver {
   final CustomizationManager _customizationManager = CustomizationManager();
+  final NotificationManager _notificationManager = NotificationManager();
   late final AchievementManager _achievementManager;
   bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _achievementManager = AchievementManager(_customizationManager);
+    _achievementManager = AchievementManager(_customizationManager, _notificationManager);
     _initializeCustomization();
     _processQueuedScores();
     

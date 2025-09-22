@@ -7,6 +7,7 @@ import '../../models/achievement.dart';
 import '../../models/bird_skin.dart';
 import '../../game/managers/achievement_manager.dart';
 import '../../game/managers/customization_manager.dart';
+import '../../game/managers/notification_manager.dart';
 import '../../services/leaderboard_integration_service.dart';
 import '../components/game_hud.dart';
 import '../components/pause_overlay.dart';
@@ -41,6 +42,7 @@ class _GameScreenState extends State<GameScreen>
   // Achievement tracking
   late AchievementManager _achievementManager;
   late CustomizationManager _customizationManager;
+  late NotificationManager _notificationManager;
   List<Achievement> _pendingAchievements = [];
   List<BirdSkin> _pendingSkins = [];
   
@@ -60,7 +62,8 @@ class _GameScreenState extends State<GameScreen>
     
     // Initialize managers
     _customizationManager = widget.customizationManager ?? CustomizationManager();
-    _achievementManager = widget.achievementManager ?? AchievementManager(_customizationManager);
+    _notificationManager = NotificationManager();
+    _achievementManager = widget.achievementManager ?? AchievementManager(_customizationManager, _notificationManager);
     
     // Initialize game
     game = NeonPulseGame();

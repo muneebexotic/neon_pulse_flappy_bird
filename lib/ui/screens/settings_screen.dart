@@ -5,11 +5,14 @@ import '../components/graphics_settings.dart';
 import '../components/difficulty_settings.dart';
 import '../components/control_settings.dart';
 import '../components/accessibility_settings.dart';
+import '../components/notification_settings.dart';
 import '../theme/neon_theme.dart';
 import '../../game/managers/audio_manager.dart';
 import '../../game/managers/settings_manager.dart';
 import '../../game/managers/accessibility_manager.dart';
 import '../../game/managers/haptic_manager.dart';
+import '../../game/managers/notification_manager.dart';
+import '../../game/managers/achievement_manager.dart';
 import '../../game/utils/performance_monitor.dart';
 import '../../providers/authentication_provider.dart';
 
@@ -20,6 +23,8 @@ class SettingsScreen extends StatefulWidget {
   final PerformanceMonitor? performanceMonitor;
   final AccessibilityManager? accessibilityManager;
   final HapticManager? hapticManager;
+  final NotificationManager? notificationManager;
+  final AchievementManager? achievementManager;
   final VoidCallback? onSettingsChanged;
   
   const SettingsScreen({
@@ -29,6 +34,8 @@ class SettingsScreen extends StatefulWidget {
     this.performanceMonitor,
     this.accessibilityManager,
     this.hapticManager,
+    this.notificationManager,
+    this.achievementManager,
     this.onSettingsChanged,
   });
 
@@ -46,7 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     _settingsManager = widget.settingsManager ?? SettingsManager();
     _performanceMonitor = widget.performanceMonitor ?? PerformanceMonitor();
     _accessibilityManager = widget.accessibilityManager ?? AccessibilityManager();
@@ -102,6 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                     _buildGameplayTab(),
                     _buildControlsTab(),
                     _buildAudioTab(),
+                    _buildNotificationsTab(),
                     _buildAccessibilityTab(),
                     _buildAccountTab(),
                   ],
@@ -181,6 +189,10 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
           Tab(
             icon: Icon(Icons.volume_up, size: 20),
             text: 'Audio',
+          ),
+          Tab(
+            icon: Icon(Icons.notifications, size: 20),
+            text: 'Notifications',
           ),
           Tab(
             icon: Icon(Icons.accessibility, size: 20),
@@ -288,6 +300,23 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
               },
             )
           : _buildAudioUnavailable(),
+    );
+  }
+
+  Widget _buildNotificationsTab() {
+    return NotificationSettings(
+      notificationManager: widget.notificationManager,
+      achievementManager: widget.achievementManager,
+      onSettingsChanged: () {
+        widget.onSettingsChanged?.call();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Notification settings updated'),
+            backgroundColor: NeonTheme.hotPink,
+          ),
+        );
+      },
     );
   }
 
