@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/achievement.dart';
 import '../../game/managers/achievement_manager.dart';
 import '../../game/managers/adaptive_quality_manager.dart';
 import '../../game/managers/haptic_manager.dart';
+import '../../game/managers/achievement_event_manager.dart';
 
 /// Main achievements progression screen that orchestrates all components
 class AchievementsProgressionScreen extends StatefulWidget {
@@ -24,11 +26,19 @@ class AchievementsProgressionScreen extends StatefulWidget {
 class _AchievementsProgressionScreenState extends State<AchievementsProgressionScreen> {
   bool _isLoading = true;
   List<Achievement> _achievements = [];
+  StreamSubscription<AchievementEvent>? _achievementSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadAchievements();
+    _listenToAchievementUpdates();
+  }
+
+  @override
+  void dispose() {
+    _achievementSubscription?.cancel();
+    super.dispose();
   }
 
   void _loadAchievements() async {
@@ -41,6 +51,54 @@ class _AchievementsProgressionScreenState extends State<AchievementsProgressionS
         _isLoading = false;
       });
     }
+  }
+
+  /// Subscribe to achievement events for real-time updates
+  void _listenToAchievementUpdates() {
+    _achievementSubscription = AchievementEventManager.instance.achievementEvents.listen(
+      _handleAchievementEvent,
+      onError: (error) {
+        // Handle stream errors gracefully
+        debugPrint('Achievement event stream error: $error');
+      },
+    );
+  }
+
+  /// Process real-time achievement updates
+  void _handleAchievementEvent(AchievementEvent event) {
+    if (!mounted) return;
+
+    // Handle different types of achievement events
+    if (event is AchievementProgressEvent) {
+      _updateAchievementDisplay(event.achievement);
+    } else if (event is AchievementUnlockedEvent) {
+      _updateAchievementDisplay(event.achievement);
+    } else if (event is StatisticsUpdatedEvent) {
+      // Refresh all achievements when statistics change
+      _refreshAllAchievements();
+    }
+  }
+
+  /// Refresh UI with new achievement data
+  void _updateAchievementDisplay(Achievement updatedAchievement) {
+    if (!mounted) return;
+
+    setState(() {
+      // Find and update the specific achievement in the list
+      final index = _achievements.indexWhere((a) => a.id == updatedAchievement.id);
+      if (index != -1) {
+        _achievements[index] = updatedAchievement;
+      }
+    });
+  }
+
+  /// Refresh all achievements from the manager
+  void _refreshAllAchievements() {
+    if (!mounted) return;
+
+    setState(() {
+      _achievements = widget.achievementManager.achievements;
+    });
   }
 
   @override
