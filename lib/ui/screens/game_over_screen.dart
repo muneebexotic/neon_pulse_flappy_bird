@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../game/managers/achievement_manager.dart';
+import '../../game/managers/game_state_manager.dart';
 import '../../services/leaderboard_integration_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../providers/authentication_provider.dart';
@@ -37,7 +38,7 @@ class GameOverScreen extends StatefulWidget {
 }
 
 class _GameOverScreenState extends State<GameOverScreen> {
-  bool _isSubmittingScore = false;
+  late final GameStateManager _gameStateManager;
   bool _hasSubmittedScore = false;
   ScoreSubmissionResult? _submissionResult;
   int? _leaderboardPosition;
@@ -48,22 +49,34 @@ class _GameOverScreenState extends State<GameOverScreen> {
   @override
   void initState() {
     super.initState();
+    _gameStateManager = GameStateManager();
     _handleScoreSubmission();
+  }
+
+  @override
+  void dispose() {
+    _gameStateManager.dispose();
+    super.dispose();
   }
 
   Future<void> _handleScoreSubmission() async {
     final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
     
-    // Submit score for all users (authenticated and guest)
-    if (!authProvider.isAuthenticated) {
-      return;
-    }
-
     // Don't submit if already submitted
     if (_hasSubmittedScore) return;
 
+    // Don't submit for unauthenticated users or invalid scores
+    if (!authProvider.isAuthenticated || widget.finalScore <= 0) {
+      setState(() {
+        _hasSubmittedScore = true;
+        _submissionResult = widget.finalScore <= 0 
+            ? ScoreSubmissionResult.invalidScore 
+            : ScoreSubmissionResult.notAuthenticated;
+      });
+      return;
+    }
+
     setState(() {
-      _isSubmittingScore = true;
       _isOfflineSubmission = ConnectivityService.isOffline;
     });
 
@@ -80,8 +93,8 @@ class _GameOverScreenState extends State<GameOverScreen> {
         sessionId: DateTime.now().millisecondsSinceEpoch.toString(),
       );
 
-      // Submit score (will be queued if offline)
-      final result = await LeaderboardIntegrationService.submitScore(
+      // Submit score using GameStateManager (with 1-second timeout)
+      final result = await _gameStateManager.submitScore(
         score: widget.finalScore,
         gameSession: gameSession,
         user: authProvider.currentUser,
@@ -104,7 +117,6 @@ class _GameOverScreenState extends State<GameOverScreen> {
       );
 
       setState(() {
-        _isSubmittingScore = false;
         _hasSubmittedScore = true;
         _submissionResult = result;
         _leaderboardPosition = position;
@@ -132,7 +144,6 @@ class _GameOverScreenState extends State<GameOverScreen> {
     } catch (e) {
       print('Error handling score submission: $e');
       setState(() {
-        _isSubmittingScore = false;
         _submissionResult = ScoreSubmissionResult.failed;
       });
       
@@ -143,6 +154,10 @@ class _GameOverScreenState extends State<GameOverScreen> {
           customMessage: 'Score saved locally due to connection error.',
         );
       }
+    } finally {
+      setState(() {
+        _hasSubmittedScore = true;
+      });
     }
   }
 
@@ -186,6 +201,7 @@ class _GameOverScreenState extends State<GameOverScreen> {
           Navigator.of(context).pop();
           setState(() {
             _hasSubmittedScore = false;
+            _submissionResult = null;
           });
           _handleScoreSubmission();
         },
@@ -275,7 +291,7 @@ class _GameOverScreenState extends State<GameOverScreen> {
               ],
               
               // Score submission status
-              if (_isSubmittingScore) ...[
+              if (_gameStateManager.isScoreSubmissionInProgress) ...[
                 const SizedBox(height: 16),
                 _buildSubmissionStatus(),
               ],
@@ -294,7 +310,7 @@ class _GameOverScreenState extends State<GameOverScreen> {
                         'RESTART',
                         Icons.refresh,
                         Colors.cyan,
-                        widget.onRestart,
+                        _gameStateManager.isRestartEnabled ? widget.onRestart : null,
                       ),
                     ),
                   ),
@@ -420,13 +436,16 @@ class _GameOverScreenState extends State<GameOverScreen> {
     String text,
     IconData icon,
     Color color,
-    VoidCallback onPressed,
+    VoidCallback? onPressed,
   ) {
+    final isEnabled = onPressed != null;
+    final buttonColor = isEnabled ? color : color.withOpacity(0.5);
+    
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.transparent,
-        side: BorderSide(color: color, width: 2),
+        side: BorderSide(color: buttonColor, width: 2),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -436,12 +455,12 @@ class _GameOverScreenState extends State<GameOverScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 20),
+          Icon(icon, color: buttonColor, size: 20),
           const SizedBox(height: 4),
           Text(
             text,
             style: TextStyle(
-              color: color,
+              color: buttonColor,
               fontWeight: FontWeight.bold,
               fontSize: 12,
             ),
@@ -459,7 +478,7 @@ class _GameOverScreenState extends State<GameOverScreen> {
     Color statusColor;
     IconData statusIcon;
 
-    if (_isSubmittingScore) {
+    if (_gameStateManager.isScoreSubmissionInProgress) {
       if (_isOfflineSubmission) {
         statusText = 'Saving score locally...';
         statusColor = Colors.orange;
@@ -506,7 +525,7 @@ class _GameOverScreenState extends State<GameOverScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_isSubmittingScore)
+          if (_gameStateManager.isScoreSubmissionInProgress)
             SizedBox(
               width: 16,
               height: 16,
