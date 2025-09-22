@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/neon_theme.dart';
 import '../../models/bird_skin.dart';
-import '../../models/achievement.dart';
 import '../../game/managers/customization_manager.dart';
 
 class CustomizationScreen extends StatefulWidget {
@@ -24,7 +23,7 @@ class _CustomizationScreenState extends State<CustomizationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 1, vsync: this);
     _previewSkin = widget.customizationManager.selectedSkin;
   }
 
@@ -62,7 +61,6 @@ class _CustomizationScreenState extends State<CustomizationScreen>
           unselectedLabelColor: NeonTheme.secondaryNeon.withOpacity(0.6),
           tabs: const [
             Tab(text: 'SKINS'),
-            Tab(text: 'ACHIEVEMENTS'),
           ],
         ),
       ),
@@ -70,7 +68,6 @@ class _CustomizationScreenState extends State<CustomizationScreen>
         controller: _tabController,
         children: [
           _buildSkinsTab(),
-          _buildAchievementsTab(),
         ],
       ),
     );
@@ -360,133 +357,5 @@ class _CustomizationScreenState extends State<CustomizationScreen>
     }
   }
 
-  Widget _buildAchievementsTab() {
-    final achievements = widget.customizationManager.achievements;
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: achievements.length,
-      itemBuilder: (context, index) {
-        final achievement = achievements[index];
-        return _buildAchievementCard(achievement);
-      },
-    );
-  }
 
-  Widget _buildAchievementCard(Achievement achievement) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: achievement.isUnlocked 
-              ? NeonTheme.successNeon 
-              : NeonTheme.secondaryNeon.withOpacity(0.3),
-          width: 1,
-        ),
-        borderRadius: BorderRadius.circular(8),
-        color: NeonTheme.cardColor.withOpacity(0.1),
-        boxShadow: achievement.isUnlocked ? [
-          BoxShadow(
-            color: NeonTheme.successNeon.withOpacity(0.2),
-            blurRadius: 6,
-            spreadRadius: 1,
-          ),
-        ] : null,
-      ),
-      child: Row(
-        children: [
-          // Achievement icon
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: achievement.isUnlocked 
-                  ? achievement.iconColor 
-                  : Colors.grey.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              achievement.icon,
-              color: achievement.isUnlocked ? Colors.white : Colors.grey,
-              size: 24,
-            ),
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // Achievement info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  achievement.name,
-                  style: NeonTheme.bodyStyle.copyWith(
-                    color: achievement.isUnlocked 
-                        ? NeonTheme.textColor 
-                        : Colors.grey,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                
-                const SizedBox(height: 4),
-                
-                Text(
-                  achievement.description,
-                  style: NeonTheme.bodyStyle.copyWith(
-                    color: NeonTheme.textColor.withOpacity(0.7),
-                    fontSize: 12,
-                  ),
-                ),
-                
-                const SizedBox(height: 8),
-                
-                // Progress bar
-                LinearProgressIndicator(
-                  value: achievement.progressPercentage,
-                  backgroundColor: Colors.grey.withOpacity(0.3),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    achievement.isUnlocked 
-                        ? NeonTheme.successNeon 
-                        : NeonTheme.primaryNeon,
-                  ),
-                ),
-                
-                const SizedBox(height: 4),
-                
-                Text(
-                  '${achievement.currentProgress}/${achievement.targetValue}',
-                  style: NeonTheme.bodyStyle.copyWith(
-                    color: NeonTheme.textColor.withOpacity(0.6),
-                    fontSize: 10,
-                  ),
-                ),
-                
-                if (achievement.rewardSkinId != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Reward: Special skin',
-                    style: NeonTheme.bodyStyle.copyWith(
-                      color: NeonTheme.warningNeon,
-                      fontSize: 10,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          
-          // Unlock status
-          if (achievement.isUnlocked)
-            Icon(
-              Icons.check_circle,
-              color: NeonTheme.successNeon,
-              size: 24,
-            ),
-        ],
-      ),
-    );
-  }
 }
